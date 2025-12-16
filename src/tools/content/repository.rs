@@ -12,9 +12,9 @@ pub struct ContentRepository {
 }
 
 impl ContentRepository {
-    pub fn new(db: DbPool) -> Self {
-        let pool = db.pool_arc().expect("Database must be PostgreSQL");
-        Self { pool }
+    pub fn new(db: DbPool) -> Result<Self> {
+        let pool = db.pool_arc()?;
+        Ok(Self { pool })
     }
 
     pub async fn get_daily_views_per_content(&self, days: i32) -> Result<Vec<DailyViewData>> {
@@ -27,9 +27,12 @@ impl ContentRepository {
                 COUNT(*) as daily_views
             FROM analytics_events ae
             JOIN markdown_content mc ON ae.endpoint = 'GET /blog/' || mc.slug
+            JOIN user_sessions us ON ae.session_id = us.session_id
             WHERE ae.timestamp >= NOW() - ($1 || ' days')::INTERVAL
               AND ae.event_type = 'page_view'
               AND ae.endpoint LIKE 'GET /blog/%'
+              AND us.is_bot = false
+              AND us.is_scanner = false
             GROUP BY mc.id, mc.title, DATE(ae.timestamp)
             ORDER BY DATE(ae.timestamp) DESC, daily_views DESC
             "#,
@@ -53,15 +56,18 @@ impl ContentRepository {
         let row = sqlx::query!(
             r#"
             SELECT
-                COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= NOW() - INTERVAL '1 day') as traffic_1d,
-                COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= NOW() - INTERVAL '7 days') as traffic_7d,
-                COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= NOW() - INTERVAL '30 days') as traffic_30d,
-                COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= NOW() - INTERVAL '2 days' AND timestamp < NOW() - INTERVAL '1 day') as prev_traffic_1d,
-                COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= NOW() - INTERVAL '14 days' AND timestamp < NOW() - INTERVAL '7 days') as prev_traffic_7d,
-                COUNT(DISTINCT session_id) FILTER (WHERE timestamp >= NOW() - INTERVAL '60 days' AND timestamp < NOW() - INTERVAL '30 days') as prev_traffic_30d
-            FROM analytics_events
-            WHERE event_type = 'page_view'
-              AND endpoint LIKE 'GET /blog/%'
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '1 day') as traffic_1d,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '7 days') as traffic_7d,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '30 days') as traffic_30d,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '2 days' AND ae.timestamp < NOW() - INTERVAL '1 day') as prev_traffic_1d,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '14 days' AND ae.timestamp < NOW() - INTERVAL '7 days') as prev_traffic_7d,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '60 days' AND ae.timestamp < NOW() - INTERVAL '30 days') as prev_traffic_30d
+            FROM analytics_events ae
+            JOIN user_sessions us ON ae.session_id = us.session_id
+            WHERE ae.event_type = 'page_view'
+              AND ae.endpoint LIKE 'GET /blog/%'
+              AND us.is_bot = false
+              AND us.is_scanner = false
             "#
         )
         .fetch_one(&*self.pool)
@@ -87,19 +93,22 @@ impl ContentRepository {
                 mc.source_id,
                 mc.published_at,
                 EXTRACT(DAY FROM NOW() - mc.published_at)::integer as days_old,
-                COUNT(ae.id) as total_views,
-                COUNT(DISTINCT ae.session_id) as visitors_all_time,
-                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '1 day') as visitors_1d,
-                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '7 days') as visitors_7d,
-                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '30 days') as visitors_30d
+                COUNT(ae.id) FILTER (WHERE us.session_id IS NOT NULL) as total_views,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE us.session_id IS NOT NULL) as visitors_all_time,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '1 day' AND us.session_id IS NOT NULL) as visitors_1d,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '7 days' AND us.session_id IS NOT NULL) as visitors_7d,
+                COUNT(DISTINCT ae.session_id) FILTER (WHERE ae.timestamp >= NOW() - INTERVAL '30 days' AND us.session_id IS NOT NULL) as visitors_30d
             FROM markdown_content mc
             LEFT JOIN analytics_events ae ON ae.endpoint = 'GET /blog/' || mc.slug
                 AND ae.event_type = 'page_view'
+            LEFT JOIN user_sessions us ON ae.session_id = us.session_id
+                AND us.is_bot = false
+                AND us.is_scanner = false
             GROUP BY mc.id, mc.title, mc.slug, mc.source_id, mc.published_at
             ORDER BY visitors_7d DESC NULLS LAST
             LIMIT $1
             "#,
-            limit as i64
+            i64::from(limit)
         )
         .fetch_all(&*self.pool)
         .await?;
@@ -142,6 +151,9 @@ impl ContentRepository {
                 AVG(EXTRACT(EPOCH FROM (last_activity_at - started_at)))::float8 as avg_duration_sec
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             GROUP BY referrer_url
             ORDER BY sessions DESC
             LIMIT 20
@@ -166,8 +178,8 @@ impl ContentRepository {
 
 fn build_preview_url(source_id: &str, slug: &str) -> String {
     match source_id {
-        "blog" => format!("{}/blog/{}", BASE_URL, slug),
-        "pages" => format!("{}/{}", BASE_URL, slug),
-        _ => format!("{}/{}", BASE_URL, slug),
+        "blog" => format!("{BASE_URL}/blog/{slug}"),
+        "pages" => format!("{BASE_URL}/{slug}"),
+        _ => format!("{BASE_URL}/{slug}"),
     }
 }

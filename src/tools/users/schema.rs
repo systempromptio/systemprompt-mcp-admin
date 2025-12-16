@@ -1,6 +1,6 @@
 use serde_json::{json, Value as JsonValue};
 
-pub fn users_input_schema() -> JsonValue {
+#[must_use] pub fn users_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -12,7 +12,7 @@ pub fn users_input_schema() -> JsonValue {
     })
 }
 
-pub fn users_output_schema() -> JsonValue {
+#[must_use] pub fn users_output_schema() -> JsonValue {
     list_users_output_schema()
 }
 

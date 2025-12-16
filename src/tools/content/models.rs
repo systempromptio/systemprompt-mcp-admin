@@ -61,7 +61,7 @@ impl TrafficSummary {
         if self.prev_traffic_1d == 0 {
             0.0
         } else {
-            ((self.traffic_1d - self.prev_traffic_1d) as f64 / self.prev_traffic_1d as f64) * 100.0
+            (f64::from(self.traffic_1d - self.prev_traffic_1d) / f64::from(self.prev_traffic_1d)) * 100.0
         }
     }
 
@@ -69,7 +69,7 @@ impl TrafficSummary {
         if self.prev_traffic_7d == 0 {
             0.0
         } else {
-            ((self.traffic_7d - self.prev_traffic_7d) as f64 / self.prev_traffic_7d as f64) * 100.0
+            (f64::from(self.traffic_7d - self.prev_traffic_7d) / f64::from(self.prev_traffic_7d)) * 100.0
         }
     }
 
@@ -77,7 +77,7 @@ impl TrafficSummary {
         if self.prev_traffic_30d == 0 {
             0.0
         } else {
-            ((self.traffic_30d - self.prev_traffic_30d) as f64 / self.prev_traffic_30d as f64)
+            (f64::from(self.traffic_30d - self.prev_traffic_30d) / f64::from(self.prev_traffic_30d))
                 * 100.0
         }
     }

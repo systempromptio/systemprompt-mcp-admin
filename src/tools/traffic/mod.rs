@@ -1,8 +1,8 @@
 mod models;
-mod repository;
+pub mod repository;
 mod sections;
 
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
 use systemprompt_core_logging::LogService;
@@ -18,7 +18,7 @@ use sections::{
     create_traffic_summary_section,
 };
 
-pub fn traffic_input_schema() -> JsonValue {
+#[must_use] pub fn traffic_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -32,7 +32,7 @@ pub fn traffic_input_schema() -> JsonValue {
     })
 }
 
-pub fn traffic_output_schema() -> JsonValue {
+#[must_use] pub fn traffic_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 
@@ -53,7 +53,7 @@ pub async fn handle_traffic(
     logger
         .debug(
             "traffic_tool",
-            &format!("Generating analytics | type=traffic, period={}", time_range),
+            &format!("Generating analytics | type=traffic, period={time_range}"),
         )
         .await
         .ok();
@@ -65,10 +65,11 @@ pub async fn handle_traffic(
         _ => 30,
     };
 
-    let repo = TrafficRepository::new(pool.clone());
+    let repo = TrafficRepository::new(pool.clone())
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     let mut dashboard = DashboardArtifact::new("Website Traffic Analytics")
-        .with_description(format!("Traffic metrics for the last {} days", days))
+        .with_description(format!("Traffic metrics for the last {days} days"))
         .with_hints(
             DashboardHints::new()
                 .with_layout(LayoutMode::Vertical)
@@ -129,8 +130,7 @@ pub async fn handle_traffic(
 
     Ok(CallToolResult {
         content: vec![Content::text(format!(
-            "Website Traffic Analytics ({})",
-            time_range
+            "Website Traffic Analytics ({time_range})"
         ))],
         structured_content: Some(tool_response.to_json()),
         is_error: Some(false),

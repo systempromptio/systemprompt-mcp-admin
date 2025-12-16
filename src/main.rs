@@ -7,7 +7,7 @@ use systemprompt_identifiers::McpServerId;
 use systemprompt_models::Config;
 use tokio::net::TcpListener;
 
-/// Default service ID - MUST match the key in mcp_servers config
+/// Default service ID - MUST match the key in `mcp_servers` config
 const DEFAULT_SERVICE_ID: &str = "systemprompt-admin";
 const DEFAULT_PORT: u16 = 5002;
 
@@ -23,11 +23,9 @@ async fn main() -> Result<()> {
     );
     let logger = LogService::system(ctx.db_pool().clone());
 
-    // Read service ID from env (set by spawner) or use default
     let service_id = McpServerId::from_env().unwrap_or_else(|_| {
         eprintln!(
-            "[WARN] MCP_SERVICE_ID not set, using default: {}",
-            DEFAULT_SERVICE_ID
+            "[WARN] MCP_SERVICE_ID not set, using default: {DEFAULT_SERVICE_ID}"
         );
         McpServerId::new(DEFAULT_SERVICE_ID)
     });
@@ -36,19 +34,19 @@ async fn main() -> Result<()> {
         .ok()
         .and_then(|p| p.parse::<u16>().ok())
         .unwrap_or_else(|| {
-            eprintln!("[WARN] MCP_PORT not set, using default: {}", DEFAULT_PORT);
+            eprintln!("[WARN] MCP_PORT not set, using default: {DEFAULT_PORT}");
             DEFAULT_PORT
         });
 
     let server = AdminServer::new(ctx.db_pool().clone(), service_id.clone(), ctx.clone());
     let router = systemprompt_core_mcp::create_router(server, ctx.clone()).await?;
-    let addr = format!("0.0.0.0:{}", port);
+    let addr = format!("0.0.0.0:{port}");
     let listener = TcpListener::bind(&addr).await?;
 
     logger
         .info(
             service_id.as_str(),
-            &format!("Admin MCP server '{}' listening on {}", service_id, addr),
+            &format!("Admin MCP server '{service_id}' listening on {addr}"),
         )
         .await?;
 

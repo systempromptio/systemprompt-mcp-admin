@@ -25,7 +25,7 @@ pub struct AdminServer {
 }
 
 impl AdminServer {
-    pub fn new(db_pool: DbPool, service_id: McpServerId, app_context: Arc<AppContext>) -> Self {
+    #[must_use] pub fn new(db_pool: DbPool, service_id: McpServerId, app_context: Arc<AppContext>) -> Self {
         let prompts = Arc::new(AdminPrompts::new(db_pool.clone(), service_id.to_string()));
         let resources = Arc::new(AdminResources::new(db_pool.clone(), service_id.to_string()));
         let system_log = LogService::system(db_pool.clone());

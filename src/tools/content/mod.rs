@@ -1,9 +1,9 @@
 mod models;
-mod repository;
+pub mod repository;
 mod sections;
 
 use anyhow::Result;
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_blog::models::{LinkType, UtmParams};
 use systemprompt_core_blog::services::LinkGenerationService;
@@ -23,7 +23,7 @@ use sections::{
 
 const REDIRECT_BASE_URL: &str = "https://tyingshoelaces.com";
 
-pub fn content_input_schema() -> JsonValue {
+#[must_use] pub fn content_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -37,7 +37,7 @@ pub fn content_input_schema() -> JsonValue {
     })
 }
 
-pub fn content_output_schema() -> JsonValue {
+#[must_use] pub fn content_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 
@@ -58,7 +58,7 @@ pub async fn handle_content(
     logger
         .debug(
             "content_tool",
-            &format!("Generating analytics | type=content, period={}", time_range),
+            &format!("Generating analytics | type=content, period={time_range}"),
         )
         .await
         .ok();
@@ -70,7 +70,8 @@ pub async fn handle_content(
         _ => 30,
     };
 
-    let repo = ContentRepository::new(pool.clone());
+    let repo = ContentRepository::new(pool.clone())
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
     let link_service = LinkGenerationService::new(pool.clone());
 
     let mut dashboard = DashboardArtifact::new("Content Analytics").with_hints(
@@ -136,7 +137,7 @@ pub async fn handle_content(
 }
 
 fn format_summary(top_content: &[ContentPerformance], time_range: &str) -> String {
-    let mut summary = format!("Content Analytics ({})\n\n", time_range);
+    let mut summary = format!("Content Analytics ({time_range})\n\n");
 
     if top_content.is_empty() {
         summary.push_str("No content data available for the selected time range.");

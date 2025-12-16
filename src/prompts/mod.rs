@@ -3,7 +3,7 @@ pub mod agent_management;
 pub mod system_health;
 
 use anyhow::Result;
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{PaginatedRequestParam, ListPromptsResult, Prompt, PromptArgument, GetPromptRequestParam, GetPromptResult, PromptMessage, PromptMessageRole, PromptMessageContent}, service::RequestContext, ErrorData as McpError, RoleServer};
 use systemprompt_core_database::DbPool;
 
 pub use admin_analysis::build_admin_analysis_prompt;
@@ -19,7 +19,7 @@ pub struct AdminPrompts {
 }
 
 impl AdminPrompts {
-    pub fn new(db_pool: DbPool, server_name: String) -> Self {
+    #[must_use] pub fn new(db_pool: DbPool, server_name: String) -> Self {
         Self {
             _db_pool: db_pool,
             _server_name: server_name,
@@ -118,8 +118,7 @@ impl AdminPrompts {
 
                 Ok(GetPromptResult {
                     description: Some(format!(
-                        "Administrative analysis focused on {} over {}",
-                        focus_area, time_period
+                        "Administrative analysis focused on {focus_area} over {time_period}"
                     )),
                     messages: vec![PromptMessage {
                         role: PromptMessageRole::User,
@@ -132,7 +131,7 @@ impl AdminPrompts {
                     .arguments
                     .as_ref()
                     .and_then(|args| args.get("include_recommendations"))
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(true);
 
                 let prompt_content =

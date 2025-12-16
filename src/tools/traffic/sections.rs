@@ -43,7 +43,7 @@ pub fn create_traffic_summary_section(summary: &TrafficSummary) -> DashboardSect
         }),
         json!({
             "title": "Total AI Cost",
-            "value": format!("${:.4}", summary.total_cost_cents as f64 / 1_000_000.0),
+            "value": format!("${:.4}", f64::from(summary.total_cost_cents) / 1_000_000.0),
             "icon": "dollar-sign",
             "status": "warning"
         }),

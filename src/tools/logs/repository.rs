@@ -10,9 +10,9 @@ pub struct LogsRepository {
 }
 
 impl LogsRepository {
-    pub fn new(db: DbPool) -> Self {
-        let pool = db.pool_arc().expect("Database must be PostgreSQL");
-        Self { pool }
+    pub fn new(db: DbPool) -> Result<Self> {
+        let pool = db.pool_arc()?;
+        Ok(Self { pool })
     }
 
     pub async fn fetch_recent_logs(
@@ -40,8 +40,8 @@ impl LogsRepository {
             LIMIT $2 OFFSET $3
             "#,
             level,
-            limit as i64,
-            offset as i64
+            i64::from(limit),
+            i64::from(offset)
         )
         .fetch_all(&*self.pool)
         .await?;

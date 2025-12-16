@@ -1,30 +1,30 @@
 use anyhow::Result;
-use chrono::Utc;
 use sqlx::PgPool;
 use std::sync::Arc;
 use systemprompt_core_database::DbPool;
 
-use super::models::{ConversationSummary, EvaluationStats, RecentConversation};
+use super::models::{ConversationSummary, ConversationTrendRow, RecentConversation};
 
 pub struct ConversationsRepository {
     pool: Arc<PgPool>,
 }
 
 impl ConversationsRepository {
-    pub fn new(db: DbPool) -> Self {
-        let pool = db.pool_arc().expect("Database must be PostgreSQL");
-        Self { pool }
+    pub fn new(db: DbPool) -> Result<Self> {
+        let pool = db.pool_arc()?;
+        Ok(Self { pool })
     }
 
-    pub async fn get_conversation_summary(&self, days: i32) -> Result<ConversationSummary> {
-        let row = sqlx::query!(
+    pub async fn get_conversation_summary(&self, interval: &str) -> Result<ConversationSummary> {
+        let row = sqlx::query_as!(
+            ConversationSummary,
             r#"
             SELECT
-                COUNT(DISTINCT uc.context_id) as total_conversations,
-                COUNT(tm.id) as total_messages,
-                COALESCE(AVG(message_counts.msg_count)::float8, 0) as avg_messages_per_conversation,
-                COALESCE(AVG(EXTRACT(EPOCH FROM (at.completed_at - at.started_at)) * 1000)::float8, 0) as avg_execution_time_ms,
-                COUNT(DISTINCT CASE WHEN at.status = 'failed' THEN uc.context_id END) as failed_conversations
+                COUNT(DISTINCT uc.context_id)::int4 as "total_conversations!",
+                COUNT(tm.id)::int4 as "total_messages!",
+                COALESCE(AVG(message_counts.msg_count)::float8, 0) as "avg_messages_per_conversation!",
+                COALESCE(AVG(EXTRACT(EPOCH FROM (at.completed_at - at.started_at)) * 1000)::float8, 0) as "avg_execution_time_ms!",
+                COUNT(DISTINCT CASE WHEN at.status = 'failed' THEN uc.context_id END)::int4 as "failed_conversations!"
             FROM user_contexts uc
             LEFT JOIN agent_tasks at ON at.context_id = uc.context_id
             LEFT JOIN task_messages tm ON tm.task_id = at.task_id
@@ -34,196 +34,201 @@ impl ConversationsRepository {
                 JOIN task_messages tm2 ON tm2.task_id = at2.task_id
                 GROUP BY at2.context_id
             ) message_counts ON message_counts.context_id = uc.context_id
-            WHERE uc.created_at >= NOW() - ($1 || ' days')::INTERVAL
+            WHERE uc.updated_at >= NOW() - $1::TEXT::INTERVAL
             "#,
-            days.to_string()
+            interval
         )
         .fetch_one(&*self.pool)
         .await?;
 
-        Ok(ConversationSummary {
-            total_conversations: row.total_conversations.unwrap_or(0) as i32,
-            total_messages: row.total_messages.unwrap_or(0) as i32,
-            avg_messages_per_conversation: row.avg_messages_per_conversation.unwrap_or(0.0),
-            avg_execution_time_ms: row.avg_execution_time_ms.unwrap_or(0.0),
-            failed_conversations: row.failed_conversations.unwrap_or(0) as i32,
-        })
-    }
-
-    pub async fn get_evaluation_stats(&self, days: i32) -> Result<EvaluationStats> {
-        let start_date = Utc::now() - chrono::Duration::days(days.into());
-        let end_date = Utc::now();
-
-        let rows = sqlx::query!(
-            r#"
-            SELECT
-                conversation_quality,
-                goal_achieved,
-                user_satisfied
-            FROM conversation_evaluations
-            WHERE analyzed_at >= $1 AND analyzed_at <= $2
-            "#,
-            start_date,
-            end_date
-        )
-        .fetch_all(&*self.pool)
-        .await?;
-
-        let evaluated = rows.len() as i32;
-        let avg_quality = rows.iter().map(|r| r.conversation_quality).sum::<i32>() as f64
-            / if evaluated > 0 { evaluated as f64 } else { 1.0 };
-
-        let goal_achievements = rows.iter().filter(|r| r.goal_achieved == "yes").count();
-
-        let goal_achievement_rate = if evaluated > 0 {
-            (goal_achievements as f64 / evaluated as f64) * 100.0
-        } else {
-            0.0
-        };
-
-        let avg_satisfaction = rows.iter().map(|r| r.user_satisfied).sum::<i32>() as f64
-            / if evaluated > 0 { evaluated as f64 } else { 1.0 };
-
-        Ok(EvaluationStats {
-            evaluated_conversations: evaluated,
-            avg_quality_score: avg_quality,
-            goal_achievement_rate,
-            avg_user_satisfaction: avg_satisfaction,
-        })
+        Ok(row)
     }
 
     pub async fn get_recent_conversations_paginated(
         &self,
-        days: i32,
+        interval: &str,
+        limit: i32,
+        offset: i32,
+        agent_filter: Option<&str>,
+    ) -> Result<Vec<RecentConversation>> {
+        match agent_filter {
+            Some("non-anonymous") => {
+                self.get_conversations_non_anonymous(interval, limit, offset)
+                    .await
+            }
+            Some(agent_name) => {
+                self.get_conversations_by_agent(interval, limit, offset, agent_name)
+                    .await
+            }
+            None => self.get_conversations_all(interval, limit, offset).await,
+        }
+    }
+
+    async fn get_conversations_all(
+        &self,
+        interval: &str,
         limit: i32,
         offset: i32,
     ) -> Result<Vec<RecentConversation>> {
-        let rows = sqlx::query!(
+        sqlx::query_as!(
+            RecentConversation,
             r#"
             SELECT
-                uc.context_id,
+                uc.context_id as "context_id!",
                 uc.name as conversation_name,
-                uc.user_id,
-                COALESCE(u.name, 'anonymous') as user_name,
-                COALESCE(at.agent_name, 'unknown') as agent_name,
-                uc.created_at::text as started_at,
+                uc.user_id as "user_id!",
+                COALESCE(u.name, 'anonymous') as "user_name!",
+                COALESCE(at.agent_name, 'unknown') as "agent_name!",
+                uc.created_at::text as "started_at!",
                 TO_CHAR(uc.created_at, 'YYYY-MM-DD HH24:MI') as started_at_formatted,
-                uc.updated_at::text as last_updated,
+                uc.updated_at::text as "last_updated!",
                 TO_CHAR(uc.updated_at, 'YYYY-MM-DD HH24:MI') as last_updated_formatted,
-                EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at))::float8 as duration_seconds,
+                COALESCE(EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at))::float8, 0) as "duration_seconds!",
                 CASE
                     WHEN EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at)) < 60 THEN 'quick'
                     WHEN EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at)) < 300 THEN 'normal'
                     ELSE 'long'
                 END as duration_status,
-                COALESCE(at.status, 'unknown') as status,
+                COALESCE(at.status, 'unknown') as "status!",
                 COALESCE((
-                    SELECT COUNT(*)::integer
+                    SELECT COUNT(*)::int4
                     FROM task_messages tm
                     JOIN agent_tasks at2 ON tm.task_id = at2.task_id
                     WHERE at2.context_id = uc.context_id
-                ), 0) as message_count,
-                ce.conversation_quality as "quality_score?",
-                ce.goal_achieved as "goal_achieved?",
-                ce.user_satisfied as "user_satisfaction?",
-                ce.primary_category as "primary_category?",
-                ce.topics_discussed as "topics?",
-                ce.evaluation_summary as "evaluation_summary?"
+                ), 0) as "message_count!"
             FROM user_contexts uc
             LEFT JOIN users u ON u.id = uc.user_id
             LEFT JOIN agent_tasks at ON at.context_id = uc.context_id
-            LEFT JOIN conversation_evaluations ce ON ce.context_id = uc.context_id
-            WHERE uc.created_at >= NOW() - ($1 || ' days')::INTERVAL
-            ORDER BY uc.created_at DESC
+            WHERE uc.updated_at >= NOW() - $1::TEXT::INTERVAL
+            ORDER BY uc.updated_at DESC
             LIMIT $2 OFFSET $3
             "#,
-            days.to_string(),
-            limit as i64,
-            offset as i64
+            interval,
+            i64::from(limit),
+            i64::from(offset)
         )
         .fetch_all(&*self.pool)
-        .await?;
+        .await
+        .map_err(Into::into)
+    }
 
-        Ok(rows
-            .into_iter()
-            .map(|r| RecentConversation {
-                context_id: r.context_id,
-                conversation_name: Some(r.conversation_name),
-                user_id: r.user_id,
-                user_name: r.user_name.unwrap_or_else(|| "anonymous".to_string()),
-                agent_name: r.agent_name.unwrap_or_else(|| "unknown".to_string()),
-                started_at: r.started_at.unwrap_or_default(),
-                started_at_formatted: r.started_at_formatted,
-                last_updated: r.last_updated.unwrap_or_default(),
-                last_updated_formatted: r.last_updated_formatted,
-                duration_seconds: r.duration_seconds.unwrap_or(0.0),
-                duration_status: r.duration_status,
-                status: r.status.unwrap_or_else(|| "unknown".to_string()),
-                message_count: r.message_count.unwrap_or(0),
-                quality_score: r.quality_score,
-                goal_achieved: r.goal_achieved,
-                user_satisfaction: r.user_satisfaction,
-                primary_category: r.primary_category,
-                topics: r.topics,
-                evaluation_summary: r.evaluation_summary,
-            })
-            .collect())
+    async fn get_conversations_non_anonymous(
+        &self,
+        interval: &str,
+        limit: i32,
+        offset: i32,
+    ) -> Result<Vec<RecentConversation>> {
+        sqlx::query_as!(
+            RecentConversation,
+            r#"
+            SELECT
+                uc.context_id as "context_id!",
+                uc.name as conversation_name,
+                uc.user_id as "user_id!",
+                COALESCE(u.name, 'anonymous') as "user_name!",
+                COALESCE(at.agent_name, 'unknown') as "agent_name!",
+                uc.created_at::text as "started_at!",
+                TO_CHAR(uc.created_at, 'YYYY-MM-DD HH24:MI') as started_at_formatted,
+                uc.updated_at::text as "last_updated!",
+                TO_CHAR(uc.updated_at, 'YYYY-MM-DD HH24:MI') as last_updated_formatted,
+                COALESCE(EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at))::float8, 0) as "duration_seconds!",
+                CASE
+                    WHEN EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at)) < 60 THEN 'quick'
+                    WHEN EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at)) < 300 THEN 'normal'
+                    ELSE 'long'
+                END as duration_status,
+                COALESCE(at.status, 'unknown') as "status!",
+                COALESCE((
+                    SELECT COUNT(*)::int4
+                    FROM task_messages tm
+                    JOIN agent_tasks at2 ON tm.task_id = at2.task_id
+                    WHERE at2.context_id = uc.context_id
+                ), 0) as "message_count!"
+            FROM user_contexts uc
+            LEFT JOIN users u ON u.id = uc.user_id
+            LEFT JOIN agent_tasks at ON at.context_id = uc.context_id
+            WHERE uc.updated_at >= NOW() - $1::TEXT::INTERVAL
+            AND at.agent_name IS NOT NULL
+            AND at.agent_name != 'anonymous'
+            AND at.agent_name != 'unknown'
+            ORDER BY uc.updated_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+            interval,
+            i64::from(limit),
+            i64::from(offset)
+        )
+        .fetch_all(&*self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    async fn get_conversations_by_agent(
+        &self,
+        interval: &str,
+        limit: i32,
+        offset: i32,
+        agent_name: &str,
+    ) -> Result<Vec<RecentConversation>> {
+        sqlx::query_as!(
+            RecentConversation,
+            r#"
+            SELECT
+                uc.context_id as "context_id!",
+                uc.name as conversation_name,
+                uc.user_id as "user_id!",
+                COALESCE(u.name, 'anonymous') as "user_name!",
+                COALESCE(at.agent_name, 'unknown') as "agent_name!",
+                uc.created_at::text as "started_at!",
+                TO_CHAR(uc.created_at, 'YYYY-MM-DD HH24:MI') as started_at_formatted,
+                uc.updated_at::text as "last_updated!",
+                TO_CHAR(uc.updated_at, 'YYYY-MM-DD HH24:MI') as last_updated_formatted,
+                COALESCE(EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at))::float8, 0) as "duration_seconds!",
+                CASE
+                    WHEN EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at)) < 60 THEN 'quick'
+                    WHEN EXTRACT(EPOCH FROM (uc.updated_at - uc.created_at)) < 300 THEN 'normal'
+                    ELSE 'long'
+                END as duration_status,
+                COALESCE(at.status, 'unknown') as "status!",
+                COALESCE((
+                    SELECT COUNT(*)::int4
+                    FROM task_messages tm
+                    JOIN agent_tasks at2 ON tm.task_id = at2.task_id
+                    WHERE at2.context_id = uc.context_id
+                ), 0) as "message_count!"
+            FROM user_contexts uc
+            LEFT JOIN users u ON u.id = uc.user_id
+            LEFT JOIN agent_tasks at ON at.context_id = uc.context_id
+            WHERE uc.updated_at >= NOW() - $1::TEXT::INTERVAL
+            AND at.agent_name = $4
+            ORDER BY uc.updated_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+            interval,
+            i64::from(limit),
+            i64::from(offset),
+            agent_name
+        )
+        .fetch_all(&*self.pool)
+        .await
+        .map_err(Into::into)
     }
 
     pub async fn get_conversation_trends(&self) -> Result<Vec<ConversationTrendRow>> {
-        let rows = sqlx::query!(
+        let row = sqlx::query_as!(
+            ConversationTrendRow,
             r#"
             SELECT
-                COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as conversations_24h,
-                COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as conversations_7d,
-                COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') as conversations_30d
+                COUNT(*) FILTER (WHERE updated_at >= NOW() - INTERVAL '1 hour') as "conversations_1h!",
+                COUNT(*) FILTER (WHERE updated_at >= NOW() - INTERVAL '24 hours') as "conversations_24h!",
+                COUNT(*) FILTER (WHERE updated_at >= NOW() - INTERVAL '7 days') as "conversations_7d!",
+                COUNT(*) FILTER (WHERE updated_at >= NOW() - INTERVAL '30 days') as "conversations_30d!"
             FROM user_contexts
             "#
         )
         .fetch_one(&*self.pool)
         .await?;
 
-        Ok(vec![ConversationTrendRow {
-            conversations_24h: rows.conversations_24h.unwrap_or(0),
-            conversations_7d: rows.conversations_7d.unwrap_or(0),
-            conversations_30d: rows.conversations_30d.unwrap_or(0),
-        }])
+        Ok(vec![row])
     }
-
-    pub async fn get_conversations_by_agent(&self, days: i32) -> Result<Vec<AgentConversationRow>> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT
-                COALESCE(at.agent_name, 'unknown') as agent_name,
-                COUNT(DISTINCT uc.context_id) as conversation_count
-            FROM user_contexts uc
-            LEFT JOIN agent_tasks at ON at.context_id = uc.context_id
-            WHERE uc.created_at >= NOW() - ($1 || ' days')::INTERVAL
-            GROUP BY at.agent_name
-            ORDER BY conversation_count DESC
-            "#,
-            days.to_string()
-        )
-        .fetch_all(&*self.pool)
-        .await?;
-
-        Ok(rows
-            .into_iter()
-            .map(|r| AgentConversationRow {
-                agent_name: r.agent_name.unwrap_or_else(|| "unknown".to_string()),
-                conversation_count: r.conversation_count.unwrap_or(0),
-            })
-            .collect())
-    }
-}
-
-pub struct ConversationTrendRow {
-    pub conversations_24h: i64,
-    pub conversations_7d: i64,
-    pub conversations_30d: i64,
-}
-
-pub struct AgentConversationRow {
-    pub agent_name: String,
-    pub conversation_count: i64,
 }

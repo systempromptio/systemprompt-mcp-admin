@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{PaginatedRequestParam, ListToolsResult, CallToolRequestParam, CallToolResult}, service::RequestContext, ErrorData as McpError, RoleServer};
 use systemprompt_core_agent::services::mcp::task_helper;
 use systemprompt_core_logging::LogService;
 use systemprompt_core_mcp::middleware::enforce_rbac_from_registry;
@@ -28,7 +28,8 @@ impl AdminServer {
         let tool_name = request.name.to_string();
 
         let auth_result =
-            enforce_rbac_from_registry(&ctx, self.service_id.as_str(), Some(&self.system_log)).await?;
+            enforce_rbac_from_registry(&ctx, self.service_id.as_str(), Some(&self.system_log))
+                .await?;
         let authenticated_ctx = auth_result.expect_authenticated(
             "BUG: systemprompt-admin requires OAuth but auth was not enforced",
         );
@@ -53,7 +54,7 @@ impl AdminServer {
         logger = logger.with_task_id(task_id.as_str());
 
         let tool_repo = ToolUsageRepository::new(self.db_pool.clone());
-        let arguments = request.arguments.as_ref().cloned().unwrap_or_default();
+        let arguments = request.arguments.clone().unwrap_or_default();
 
         let exec_request = ToolExecutionRequest {
             tool_name: tool_name.clone(),
@@ -70,7 +71,7 @@ impl AdminServer {
             .start_execution(&exec_request)
             .await
             .map_err(|e| {
-                McpError::internal_error(format!("Failed to start execution: {}", e), None)
+                McpError::internal_error(format!("Failed to start execution: {e}"), None)
             })?;
 
         let mut result = crate::tools::handle_tool_call(
@@ -91,7 +92,7 @@ impl AdminServer {
                 .and_then(|r| r.structured_content.clone()),
             output_schema: output_schema.clone(),
             status: if result.is_ok() { "success" } else { "failed" }.to_string(),
-            error_message: result.as_ref().err().map(|e| format!("{:?}", e)),
+            error_message: result.as_ref().err().map(|e| format!("{e:?}")),
             completed_at: Utc::now(),
         };
 
@@ -162,7 +163,7 @@ impl AdminServer {
                                     logger
                                         .warn(
                                             "mcp_admin",
-                                            &format!("Failed to publish artifact: {}", e),
+                                            &format!("Failed to publish artifact: {e}"),
                                         )
                                         .await
                                         .ok();
@@ -173,7 +174,7 @@ impl AdminServer {
                             logger
                                 .warn(
                                     "mcp_admin",
-                                    &format!("Failed to transform tool result to artifact: {}", e),
+                                    &format!("Failed to transform tool result to artifact: {e}"),
                                 )
                                 .await
                                 .ok();
@@ -183,7 +184,6 @@ impl AdminServer {
             }
         }
 
-        // Only complete task if we created it (not if reused from parent A2A task)
         if is_task_owner {
             let server = self.clone();
             let task_id_clone = task_id.clone();
@@ -200,7 +200,7 @@ impl AdminServer {
                 .await
                 {
                     logger_clone
-                        .error("mcp_admin", &format!("Failed to complete task: {:?}", e))
+                        .error("mcp_admin", &format!("Failed to complete task: {e:?}"))
                         .await
                         .ok();
                 }

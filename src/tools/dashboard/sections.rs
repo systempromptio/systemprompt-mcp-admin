@@ -1,4 +1,3 @@
-use chrono::{DateTime, Duration, Utc};
 use serde_json::json;
 use systemprompt_core_system::models::analytics::PlatformOverview;
 use systemprompt_models::artifacts::{
@@ -7,8 +6,8 @@ use systemprompt_models::artifacts::{
 };
 
 use super::models::{
-    AgentUsageRow, ConversationMetrics, DailyTrend, RecentConversation, ToolUsageRow,
-    TrafficSummary,
+    format_timestamp, AgentUsageRow, ConversationMetrics, DailyTrend, RecentConversation,
+    ToolUsageRow, TrafficSummary,
 };
 
 pub fn create_realtime_activity_section(overview: &PlatformOverview) -> DashboardSection {
@@ -200,9 +199,9 @@ pub fn create_agent_usage_section(agent_data: &[AgentUsageRow]) -> DashboardSect
         .map(|agent| {
             json!({
                 "name": agent.agent_name,
-                "h24": agent.h24,
-                "d7": agent.d7,
-                "d30": agent.d30
+                "h24": agent.hours_24,
+                "d7": agent.days_7,
+                "d30": agent.days_30
             })
         })
         .collect();
@@ -234,9 +233,9 @@ pub fn create_tool_usage_section(tool_data: &[ToolUsageRow]) -> DashboardSection
         .map(|tool| {
             json!({
                 "name": tool.tool_name,
-                "h24": tool.h24,
-                "d7": tool.d7,
-                "d30": tool.d30
+                "h24": tool.hours_24,
+                "d7": tool.days_7,
+                "d30": tool.days_30
             })
         })
         .collect();
@@ -271,37 +270,10 @@ fn calculate_trend(current: i64, previous: i64) -> String {
     }
     let change = ((current - previous) as f64 / previous as f64) * 100.0;
     if change > 0.0 {
-        format!("↑ {:.0}%", change)
+        format!("↑ {change:.0}%")
     } else if change < 0.0 {
         format!("↓ {:.0}%", change.abs())
     } else {
         "—".to_string()
-    }
-}
-
-fn format_timestamp(timestamp_str: &str) -> String {
-    match timestamp_str.parse::<DateTime<Utc>>() {
-        Ok(dt) => {
-            let now = Utc::now();
-            let diff = now.signed_duration_since(dt);
-
-            if diff < Duration::zero() {
-                dt.format("%b %d, %Y %H:%M UTC").to_string()
-            } else if diff.num_seconds() < 60 {
-                format!("{} seconds ago", diff.num_seconds())
-            } else if diff.num_minutes() < 60 {
-                let mins = diff.num_minutes();
-                format!("{} minute{} ago", mins, if mins == 1 { "" } else { "s" })
-            } else if diff.num_hours() < 24 {
-                let hours = diff.num_hours();
-                format!("{} hour{} ago", hours, if hours == 1 { "" } else { "s" })
-            } else if diff.num_days() < 7 {
-                let days = diff.num_days();
-                format!("{} day{} ago", days, if days == 1 { "" } else { "s" })
-            } else {
-                dt.format("%b %d, %Y %H:%M UTC").to_string()
-            }
-        }
-        Err(_) => timestamp_str.to_string(),
     }
 }

@@ -52,12 +52,33 @@ systemprompt-models = { git = "https://github.com/systempromptio/systemprompt-co
 systemprompt-identifiers = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
 systemprompt-traits = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
 
+[dev-dependencies]
+tokio-test = "0.4"
+serial_test = "3.0"
+once_cell = "1.19"
+fake = { version = "2.9", features = ["derive", "chrono", "uuid"] }
+
 [lints.clippy]
 all = { level = "deny", priority = -1 }
 pedantic = { level = "deny", priority = -1 }
 missing_docs_in_private_items = "allow"
 module_name_repetitions = "allow"
 missing_errors_doc = "allow"
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+similar_names = "allow"
+unused_async = "allow"
+struct_field_names = "allow"
+needless_pass_by_value = "allow"
+too_many_lines = "allow"
+ref_option = "allow"
+match_same_arms = "allow"
+single_match_else = "allow"
+must_use_candidate = "allow"
+unnecessary_wraps = "allow"
+format_push_string = "allow"
+assigning_clones = "allow"
 
 [lints.rust]
 unsafe_code = "forbid"

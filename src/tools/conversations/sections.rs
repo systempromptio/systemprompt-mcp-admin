@@ -1,16 +1,12 @@
-use serde_json::{json, Value as JsonValue};
+use serde_json::json;
 use systemprompt_models::artifacts::{
     Column, ColumnType, DashboardSection, LayoutWidth, SectionLayout, SectionType, TableArtifact,
     TableHints,
 };
 
-use super::models::{ConversationSummary, EvaluationStats, RecentConversation};
-use super::repository::{AgentConversationRow, ConversationTrendRow};
+use super::models::{ConversationSummary, ConversationTrendRow, RecentConversation};
 
-pub fn create_summary_cards_section(
-    summary: &ConversationSummary,
-    eval_stats: &EvaluationStats,
-) -> DashboardSection {
+pub fn create_summary_cards_section(summary: &ConversationSummary) -> DashboardSection {
     let cards = vec![
         json!({
             "title": "Total Conversations",
@@ -42,30 +38,6 @@ pub fn create_summary_cards_section(
             "icon": "x-circle",
             "status": if summary.failed_conversations == 0 { "success" } else { "warning" }
         }),
-        json!({
-            "title": "Evaluated Conversations",
-            "value": eval_stats.evaluated_conversations.to_string(),
-            "icon": "check-circle",
-            "status": "info"
-        }),
-        json!({
-            "title": "Average Quality Score",
-            "value": format!("{:.0}/100", eval_stats.avg_quality_score),
-            "icon": "star",
-            "status": get_quality_status(eval_stats.avg_quality_score)
-        }),
-        json!({
-            "title": "Goal Achievement Rate",
-            "value": format!("{:.1}%", eval_stats.goal_achievement_rate),
-            "icon": "target",
-            "status": get_goal_status(eval_stats.goal_achievement_rate)
-        }),
-        json!({
-            "title": "Avg User Satisfaction",
-            "value": format!("{:.0}/100", eval_stats.avg_user_satisfaction),
-            "icon": "thumbs-up",
-            "status": get_satisfaction_status(eval_stats.avg_user_satisfaction)
-        }),
     ];
 
     DashboardSection::new(
@@ -90,14 +62,12 @@ pub fn create_conversations_table_section(
         Column::new("started_at", ColumnType::String).with_header("Started"),
         Column::new("last_updated", ColumnType::String).with_header("Last Updated"),
         Column::new("messages", ColumnType::Number).with_header("Messages"),
-        Column::new("summary", ColumnType::String).with_header("Summary"),
+        Column::new("status", ColumnType::String).with_header("Status"),
     ])
     .with_rows(
         conversations
             .iter()
             .map(|conv| {
-                let summary_text = conv.evaluation_summary.as_deref().unwrap_or("-");
-
                 json!({
                     "context_id": &conv.context_id,
                     "user": &conv.user_name,
@@ -105,7 +75,7 @@ pub fn create_conversations_table_section(
                     "started_at": conv.started_at_formatted.as_deref().unwrap_or(&conv.started_at),
                     "last_updated": conv.last_updated_formatted.as_deref().unwrap_or(&conv.last_updated),
                     "messages": conv.message_count,
-                    "summary": summary_text,
+                    "status": &conv.status,
                 })
             })
             .collect(),
@@ -120,9 +90,12 @@ pub fn create_conversations_table_section(
                 "last_updated".to_string(),
                 "messages".to_string(),
             ])
-            .with_default_sort("last_updated".to_string(), systemprompt_models::artifacts::types::SortOrder::Desc)
+            .with_default_sort(
+                "last_updated".to_string(),
+                systemprompt_models::artifacts::types::SortOrder::Desc,
+            )
             .with_page_size(10)
-            .with_row_click_enabled(true)
+            .with_row_click_enabled(true),
     );
 
     let title = format!(
@@ -141,8 +114,15 @@ pub fn create_conversations_table_section(
 pub fn create_conversation_trends_section(trends: &[ConversationTrendRow]) -> DashboardSection {
     let row = trends.first();
 
-    let cards: Vec<JsonValue> = if let Some(row) = row {
+    let cards = if let Some(row) = row {
         vec![
+            json!({
+                "title": "Conversations (1h)",
+                "value": row.conversations_1h.to_string(),
+                "subtitle": "Last hour",
+                "icon": "clock",
+                "status": "info"
+            }),
             json!({
                 "title": "Conversations (24h)",
                 "value": row.conversations_24h.to_string(),
@@ -171,7 +151,7 @@ pub fn create_conversation_trends_section(trends: &[ConversationTrendRow]) -> Da
 
     DashboardSection::new(
         "conversation_tracking",
-        "Conversation Tracking (Daily, Weekly, Monthly)",
+        "Conversation Tracking (Hourly, Daily, Weekly, Monthly)",
         SectionType::MetricsCards,
     )
     .with_data(json!({ "cards": cards }))
@@ -179,74 +159,4 @@ pub fn create_conversation_trends_section(trends: &[ConversationTrendRow]) -> Da
         width: LayoutWidth::Full,
         order: 3,
     })
-}
-
-pub fn create_agent_breakdown_section(agent_data: &[AgentConversationRow]) -> DashboardSection {
-    let total: i64 = agent_data.iter().map(|r| r.conversation_count).sum();
-
-    let cards = agent_data
-        .iter()
-        .map(|row| {
-            let percentage = if total > 0 {
-                (row.conversation_count as f64 / total as f64) * 100.0
-            } else {
-                0.0
-            };
-
-            json!({
-                "title": &row.agent_name,
-                "value": row.conversation_count.to_string(),
-                "subtitle": format!("{:.1}% of all conversations", percentage),
-                "icon": "cpu",
-                "status": "info"
-            })
-        })
-        .collect::<Vec<_>>();
-
-    DashboardSection::new(
-        "by_agent",
-        "Conversations by Agent",
-        SectionType::MetricsCards,
-    )
-    .with_data(json!({ "cards": cards }))
-    .with_layout(SectionLayout {
-        width: LayoutWidth::Full,
-        order: 4,
-    })
-}
-
-fn get_quality_status(score: f64) -> &'static str {
-    if score >= 80.0 {
-        "success"
-    } else if score >= 60.0 {
-        "info"
-    } else if score >= 40.0 {
-        "warning"
-    } else {
-        "error"
-    }
-}
-
-fn get_goal_status(rate: f64) -> &'static str {
-    if rate >= 70.0 {
-        "success"
-    } else if rate >= 50.0 {
-        "info"
-    } else if rate >= 30.0 {
-        "warning"
-    } else {
-        "error"
-    }
-}
-
-fn get_satisfaction_status(score: f64) -> &'static str {
-    if score >= 80.0 {
-        "success"
-    } else if score >= 60.0 {
-        "info"
-    } else if score >= 40.0 {
-        "warning"
-    } else {
-        "error"
-    }
 }

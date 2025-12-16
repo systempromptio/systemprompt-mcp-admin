@@ -1,7 +1,7 @@
-pub fn build_admin_analysis_prompt(focus_area: &str, time_period: &str) -> String {
+#[must_use] pub fn build_admin_analysis_prompt(focus_area: &str, time_period: &str) -> String {
     format!(
-        "You are a SystemPrompt administrator analyzing the system. Focus on: {}\n\
-        Time period: {}\n\n\
+        "You are a SystemPrompt administrator analyzing the system. Focus on: {focus_area}\n\
+        Time period: {time_period}\n\n\
         Use the following tools to gather comprehensive data:\n\
         1. get_logs - Review system logs for errors, warnings, and patterns\n\
         2. db_admin - Analyze database performance and structure\n\
@@ -33,7 +33,6 @@ pub fn build_admin_analysis_prompt(focus_area: &str, time_period: &str) -> Strin
         - Immediate actions required\n\
         - Medium-term optimizations\n\
         - Long-term strategic considerations\n\n\
-        Focus your analysis on the {} area with a {} time horizon.",
-        focus_area, time_period, focus_area, time_period
+        Focus your analysis on the {focus_area} area with a {time_period} time horizon."
     )
 }

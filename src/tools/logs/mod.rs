@@ -1,8 +1,8 @@
 mod models;
-mod repository;
+pub mod repository;
 mod sections;
 
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
 use systemprompt_core_logging::LogService;
@@ -14,7 +14,7 @@ use systemprompt_models::artifacts::{
 use repository::LogsRepository;
 use sections::{create_logs_table_section, create_stats_section};
 
-pub fn logs_input_schema() -> JsonValue {
+#[must_use] pub fn logs_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -37,7 +37,7 @@ pub fn logs_input_schema() -> JsonValue {
     })
 }
 
-pub fn logs_output_schema() -> JsonValue {
+#[must_use] pub fn logs_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 
@@ -50,22 +50,22 @@ pub async fn handle_logs(
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
 
-    let page = args.get("page").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-    let limit = args.get("limit").and_then(|v| v.as_i64()).unwrap_or(1000) as i32;
+    let page = args.get("page").and_then(serde_json::Value::as_i64).unwrap_or(0) as i32;
+    let limit = args.get("limit").and_then(serde_json::Value::as_i64).unwrap_or(1000) as i32;
     let level = args.get("level").and_then(|v| v.as_str()).map(String::from);
 
     logger
         .debug(
             "logs_tool",
             &format!(
-                "Fetching logs - page: {}, limit: {}, level: {:?}",
-                page, limit, level
+                "Fetching logs - page: {page}, limit: {limit}, level: {level:?}"
             ),
         )
         .await
         .ok();
 
-    let repo = LogsRepository::new(pool.clone());
+    let repo = LogsRepository::new(pool.clone())
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     let mut dashboard = DashboardArtifact::new("System Logs")
         .with_description("Latest system logs with pagination and server-side level filtering")
@@ -102,7 +102,7 @@ pub async fn handle_logs(
         content: vec![Content::text(format!(
             "System Logs (Page {} of {}, {} per page)",
             page,
-            (stats.total_logs as f64 / limit as f64).ceil() as i32,
+            (stats.total_logs as f64 / f64::from(limit)).ceil() as i32,
             limit
         ))],
         structured_content: Some(tool_response.to_json()),

@@ -13,9 +13,9 @@ pub struct TrafficRepository {
 }
 
 impl TrafficRepository {
-    pub fn new(db: DbPool) -> Self {
-        let pool = db.pool_arc().expect("Database must be PostgreSQL");
-        Self { pool }
+    pub fn new(db: DbPool) -> Result<Self> {
+        let pool = db.pool_arc()?;
+        Ok(Self { pool })
     }
 
     pub async fn get_traffic_summary(&self, days: i32) -> Result<TrafficSummary> {
@@ -30,6 +30,9 @@ impl TrafficRepository {
                 COALESCE(SUM(total_ai_cost_cents), 0)::bigint as total_cost_cents
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             "#,
             days.to_string()
         )
@@ -61,6 +64,9 @@ impl TrafficRepository {
                 COUNT(*) FILTER (WHERE started_at >= NOW() - INTERVAL '30 days') as traffic_30d
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             GROUP BY device_type
             ORDER BY sessions DESC
             "#,
@@ -94,6 +100,9 @@ impl TrafficRepository {
                 COUNT(*) FILTER (WHERE started_at >= NOW() - INTERVAL '30 days') as traffic_30d
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             GROUP BY country
             ORDER BY sessions DESC
             LIMIT 20
@@ -128,6 +137,9 @@ impl TrafficRepository {
                 COUNT(*) FILTER (WHERE started_at >= NOW() - INTERVAL '30 days') as traffic_30d
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             GROUP BY browser
             ORDER BY sessions DESC
             LIMIT 10
@@ -162,6 +174,9 @@ impl TrafficRepository {
                 COUNT(*) FILTER (WHERE started_at >= NOW() - INTERVAL '30 days') as traffic_30d
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             GROUP BY os
             ORDER BY sessions DESC
             LIMIT 10
@@ -195,6 +210,9 @@ impl TrafficRepository {
                 AVG(EXTRACT(EPOCH FROM (last_activity_at - started_at)))::float8 as avg_duration_sec
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             GROUP BY referrer_url
             ORDER BY sessions DESC
             LIMIT 20

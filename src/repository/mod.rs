@@ -5,7 +5,7 @@ pub struct AdminRepository {
 }
 
 impl AdminRepository {
-    pub fn new(db_pool: DbPool) -> Self {
+    #[must_use] pub fn new(db_pool: DbPool) -> Self {
         Self { _db_pool: db_pool }
     }
 }

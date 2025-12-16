@@ -28,7 +28,7 @@ Examples:
 - "Update agent uuid-456 to have monitoring capabilities" -> update operation with uuid
 "#;
 
-pub fn get_agent_operation_schema() -> serde_json::Value {
+#[must_use] pub fn get_agent_operation_schema() -> serde_json::Value {
     json!({
         "type": "object",
         "properties": {
@@ -115,9 +115,9 @@ pub fn get_agent_operation_schema() -> serde_json::Value {
     })
 }
 
-pub fn build_agent_prompt_content(task_type: &str, domain: &str) -> String {
+#[must_use] pub fn build_agent_prompt_content(task_type: &str, domain: &str) -> String {
     format!(
-        "You are a SystemPrompt agent architect. Task: {} for {} domain.\n\n\
+        "You are a SystemPrompt agent architect. Task: {task_type} for {domain} domain.\n\n\
         Use the manage_agents tool to create, update, or manage agents.\n\n\
         ## Agent Design Principles\n\
         1. **Single Responsibility**: Each agent should have one clear purpose\n\
@@ -154,8 +154,7 @@ pub fn build_agent_prompt_content(task_type: &str, domain: &str) -> String {
         - **get**: Get detailed information about specific agent\n\n\
         When creating or updating agents, provide clear instructions for the AI \
         to generate appropriate skills and capabilities based on the agent's purpose.\n\n\
-        Current task type: {}\n\
-        Domain: {}",
-        task_type, domain, task_type, domain
+        Current task type: {task_type}\n\
+        Domain: {domain}"
     )
 }

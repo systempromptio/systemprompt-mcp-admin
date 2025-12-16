@@ -1,8 +1,8 @@
 mod models;
-mod repository;
+pub mod repository;
 mod sections;
 
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
 use systemprompt_core_logging::LogService;
@@ -19,7 +19,7 @@ use sections::{
     create_tool_usage_section, create_traffic_summary_section,
 };
 
-pub fn dashboard_input_schema() -> JsonValue {
+#[must_use] pub fn dashboard_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -33,7 +33,7 @@ pub fn dashboard_input_schema() -> JsonValue {
     })
 }
 
-pub fn dashboard_output_schema() -> JsonValue {
+#[must_use] pub fn dashboard_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 
@@ -53,7 +53,7 @@ pub async fn handle_dashboard(
     logger
         .debug(
             "dashboard",
-            &format!("Generating dashboard for: {}", time_range),
+            &format!("Generating dashboard for: {time_range}"),
         )
         .await
         .ok();
@@ -66,10 +66,11 @@ pub async fn handle_dashboard(
     };
 
     let stats_repo = CoreStatsRepository::new(pool.clone());
-    let dashboard_repo = DashboardRepository::new(pool.clone());
+    let dashboard_repo = DashboardRepository::new(pool.clone())
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     let mut dashboard = DashboardArtifact::new("System Dashboard")
-        .with_description(format!("Comprehensive system metrics ({})", time_range))
+        .with_description(format!("Comprehensive system metrics ({time_range})"))
         .with_hints(
             DashboardHints::new()
                 .with_layout(LayoutMode::Vertical)
@@ -141,7 +142,7 @@ pub async fn handle_dashboard(
     );
 
     Ok(CallToolResult {
-        content: vec![Content::text(format!("System Dashboard ({})", time_range))],
+        content: vec![Content::text(format!("System Dashboard ({time_range})"))],
         structured_content: Some(tool_response.to_json()),
         is_error: Some(false),
         meta: metadata.to_meta(),

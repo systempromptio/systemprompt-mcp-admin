@@ -1,103 +1,150 @@
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+mod schema;
+
+pub use schema::{operations_input_schema, operations_output_schema};
+
+use chrono::Utc;
+use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
-use std::sync::Arc;
+use sqlx::types::Uuid;
+use systemprompt_core_blog::repository::ContentRepository;
 use systemprompt_core_database::DbPool;
+use systemprompt_core_files::File;
 use systemprompt_core_logging::LogService;
-use systemprompt_core_scheduler::models::ScheduledJob;
-use systemprompt_core_scheduler::repository::SchedulerRepository;
-use systemprompt_core_scheduler::services::jobs;
-use systemprompt_core_system::AppContext;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
-    Column, ColumnType, ExecutionMetadata, TableArtifact, TableHints, ToolResponse,
+    Column, ColumnType, DashboardArtifact, DashboardHints, DashboardSection, ExecutionMetadata,
+    LayoutMode, LayoutWidth, SectionLayout, SectionType, TableArtifact, ToolResponse,
 };
-
-pub fn operations_input_schema() -> JsonValue {
-    json!({
-        "type": "object",
-        "properties": {
-            "execute_job": {
-                "type": "string",
-                "description": "Optional job name to execute (leave blank to just list jobs)",
-                "enum": [
-                    "cleanup_anonymous_users",
-                    "cleanup_inactive_sessions",
-                    "database_cleanup",
-                    "publish_content",
-                    "evaluate_conversations",
-                    "ingest_content",
-                    "ingest_files",
-                    "optimize_images",
-                    "regenerate_static_content",
-                    "rebuild_static_site"
-                ]
-            }
-        }
-    })
-}
-
-pub fn operations_output_schema() -> JsonValue {
-    json!({
-        "type": "object",
-        "description": "Table of all scheduler jobs with current status",
-        "properties": {
-            "x-artifact-type": {"type": "string", "enum": ["table"]},
-            "columns": {"type": "array"},
-            "rows": {"type": "array"}
-        },
-        "required": ["x-artifact-type", "columns", "rows"]
-    })
-}
 
 pub async fn handle_operations(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
     logger: LogService,
-    app_context: Arc<AppContext>,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
-    let execute_job = request
-        .arguments
-        .as_ref()
-        .and_then(|args| args.get("execute_job"))
-        .and_then(|v| v.as_str());
+    let args = request.arguments.unwrap_or_default();
 
-    if let Some(job_name) = execute_job {
-        logger
-            .info(
-                "operations",
-                &format!("Spawning job in background: {}", job_name),
-            )
-            .await
-            .ok();
+    let action = args
+        .get("action")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| McpError::invalid_params("action is required", None))?;
 
-        spawn_job(job_name, pool.clone(), logger.clone(), app_context);
+    match action {
+        "list_files" => handle_list_files(pool, &args, &logger, mcp_execution_id).await,
+        "delete_file" => handle_delete_file(pool, &args, &logger, mcp_execution_id).await,
+        "delete_content" => handle_delete_content(pool, &args, &logger, mcp_execution_id).await,
+        _ => Err(McpError::invalid_params(
+            format!(
+                "Unknown action: {action}. Valid actions: list_files, delete_file, delete_content"
+            ),
+            None,
+        )),
     }
+}
 
-    let repo = SchedulerRepository::new(pool.clone());
-    let jobs = repo
-        .list_enabled_jobs()
+async fn handle_list_files(
+    pool: &DbPool,
+    args: &serde_json::Map<String, JsonValue>,
+    logger: &LogService,
+    mcp_execution_id: &McpExecutionId,
+) -> Result<CallToolResult, McpError> {
+    let limit = args.get("limit").and_then(serde_json::Value::as_i64).unwrap_or(100);
+    let offset = args.get("offset").and_then(serde_json::Value::as_i64).unwrap_or(0);
+
+    logger
+        .debug(
+            "operations",
+            &format!("Listing files | limit={limit}, offset={offset}"),
+        )
         .await
+        .ok();
+
+    let pg_pool = pool
+        .pool_arc()
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    let table = build_jobs_table(jobs);
+    let files: Vec<File> = sqlx::query_as!(
+        File,
+        r#"
+        SELECT
+            id,
+            file_path,
+            public_url,
+            mime_type,
+            file_size_bytes,
+            ai_content,
+            metadata,
+            user_id,
+            session_id,
+            trace_id,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM files
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2
+        "#,
+        limit,
+        offset
+    )
+    .fetch_all(&*pg_pool)
+    .await
+    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+    logger
+        .debug(
+            "operations",
+            &format!("Files listed | count={}", files.len()),
+        )
+        .await
+        .ok();
+
+    let items: Vec<JsonValue> = files
+        .iter()
+        .map(|f| {
+            json!({
+                "id": f.id.to_string(),
+                "thumbnail": f.public_url,
+                "file_path": f.file_path,
+                "public_url": f.public_url,
+                "mime_type": f.mime_type,
+                "file_size_bytes": f.file_size_bytes,
+                "ai_content": f.ai_content,
+                "created_at": f.created_at.to_rfc3339()
+            })
+        })
+        .collect();
+
+    let columns = vec![
+        Column::new("id", ColumnType::String).with_label("ID"),
+        Column::new("thumbnail", ColumnType::Link).with_label("Thumbnail"),
+        Column::new("file_path", ColumnType::String).with_label("Path"),
+        Column::new("public_url", ColumnType::Link).with_label("URL"),
+        Column::new("mime_type", ColumnType::String).with_label("Type"),
+        Column::new("file_size_bytes", ColumnType::Integer).with_label("Size"),
+        Column::new("ai_content", ColumnType::Boolean).with_label("AI"),
+        Column::new("created_at", ColumnType::Date).with_label("Created"),
+    ];
 
     let metadata = ExecutionMetadata::new().tool("operations");
     let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact = TableArtifact::new(columns)
+        .with_rows(items.clone())
+        .with_metadata(metadata.clone());
     let tool_response = ToolResponse::new(
         &artifact_id,
         mcp_execution_id.clone(),
-        table,
+        artifact,
         metadata.clone(),
     );
 
     Ok(CallToolResult {
         content: vec![Content::text(format!(
-            "Scheduler Jobs{}",
-            execute_job
-                .map(|j| format!(" (executing: {})", j))
-                .unwrap_or_default()
+            "Found {} files\n\n{}",
+            files.len(),
+            serde_json::to_string_pretty(&items).unwrap_or_default()
         ))],
         structured_content: Some(tool_response.to_json()),
         is_error: Some(false),
@@ -105,107 +152,114 @@ pub async fn handle_operations(
     })
 }
 
-fn spawn_job(job_name: &str, pool: DbPool, logger: LogService, app_context: Arc<AppContext>) {
-    let job_name = job_name.to_string();
-    let pool = pool.clone();
-    let logger = logger.clone();
-    let app_context = app_context.clone();
+async fn handle_delete_file(
+    pool: &DbPool,
+    args: &serde_json::Map<String, JsonValue>,
+    logger: &LogService,
+    mcp_execution_id: &McpExecutionId,
+) -> Result<CallToolResult, McpError> {
+    let uuid_str = args
+        .get("uuid")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| McpError::invalid_params("uuid is required for delete_file action", None))?;
 
-    tokio::spawn(async move {
-        logger
-            .info(
-                "operations",
-                &format!("Starting manual execution: {}", job_name),
-            )
-            .await
-            .ok();
+    let uuid = Uuid::parse_str(uuid_str)
+        .map_err(|e| McpError::invalid_params(format!("Invalid UUID: {e}"), None))?;
 
-        let result = match job_name.as_str() {
-            "cleanup_anonymous_users" => {
-                jobs::cleanup_anonymous_users(pool, logger.clone(), app_context).await
-            }
-            "cleanup_inactive_sessions" => {
-                jobs::cleanup_inactive_sessions(pool, logger.clone(), app_context).await
-            }
-            "database_cleanup" => jobs::database_cleanup(pool, logger.clone(), app_context).await,
-            "publish_content" => jobs::publish_content(pool, logger.clone(), app_context).await,
-            "evaluate_conversations" => {
-                jobs::evaluate_conversations(pool, logger.clone(), app_context).await
-            }
-            "ingest_content" => jobs::ingest_content(pool, logger.clone(), app_context).await,
-            "ingest_files" => jobs::ingest_files(pool, logger.clone()).await,
-            "optimize_images" => {
-                systemprompt_core_scheduler::services::static_content::optimize_images(
-                    pool,
-                    logger.clone(),
-                )
-                .await
-            }
-            "regenerate_static_content" => {
-                jobs::regenerate_static_content(pool, logger.clone(), app_context).await
-            }
-            "rebuild_static_site" => {
-                jobs::rebuild_static_site(pool, logger.clone(), app_context).await
-            }
-            _ => {
-                logger
-                    .error("operations", &format!("Unknown job: {}", job_name))
-                    .await
-                    .ok();
-                return;
-            }
-        };
+    logger
+        .debug("operations", &format!("Deleting file | uuid={uuid_str}"))
+        .await
+        .ok();
 
-        match result {
-            Ok(_) => {
-                logger
-                    .info("operations", &format!("Completed: {}", job_name))
-                    .await
-                    .ok();
-            }
-            Err(e) => {
-                logger
-                    .error("operations", &format!("Failed {}: {}", job_name, e))
-                    .await
-                    .ok();
-            }
-        }
-    });
+    let pg_pool = pool
+        .pool_arc()
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+    let now = Utc::now();
+    sqlx::query!("UPDATE files SET deleted_at = $1 WHERE id = $2", now, uuid)
+        .execute(&*pg_pool)
+        .await
+        .map_err(|e| McpError::internal_error(format!("Failed to delete file: {e}"), None))?;
+
+    logger
+        .debug("operations", &format!("File deleted | uuid={uuid_str}"))
+        .await
+        .ok();
+
+    build_delete_response("File Deleted", uuid_str, mcp_execution_id)
 }
 
-fn build_jobs_table(jobs: Vec<ScheduledJob>) -> TableArtifact {
-    let columns = vec![
-        Column::new("job_name", ColumnType::String).with_header("Job Name"),
-        Column::new("schedule", ColumnType::String).with_header("Schedule"),
-        Column::new("enabled", ColumnType::Boolean).with_header("Enabled"),
-        Column::new("last_run", ColumnType::String).with_header("Last Run"),
-        Column::new("last_status", ColumnType::String).with_header("Status"),
-        Column::new("run_count", ColumnType::Number).with_header("Run Count"),
-        Column::new("last_error", ColumnType::String).with_header("Error"),
-    ];
+async fn handle_delete_content(
+    pool: &DbPool,
+    args: &serde_json::Map<String, JsonValue>,
+    logger: &LogService,
+    mcp_execution_id: &McpExecutionId,
+) -> Result<CallToolResult, McpError> {
+    let uuid_str = args.get("uuid").and_then(|v| v.as_str()).ok_or_else(|| {
+        McpError::invalid_params("uuid is required for delete_content action", None)
+    })?;
 
-    let rows: Vec<serde_json::Value> = jobs
-        .iter()
-        .map(|job| {
-            json!({
-                "job_name": job.job_name,
-                "schedule": job.schedule,
-                "enabled": job.enabled,
-                "last_run": job.last_run.map(|dt| dt.to_rfc3339()).unwrap_or_else(|| "Never".to_string()),
-                "last_status": job.last_status.as_deref().unwrap_or("—"),
-                "run_count": job.run_count,
-                "last_error": job.last_error.as_deref().unwrap_or(""),
-            })
-        })
-        .collect();
+    logger
+        .debug(
+            "operations",
+            &format!("Deleting content | uuid={uuid_str}"),
+        )
+        .await
+        .ok();
 
-    TableArtifact::new(columns).with_rows(rows).with_hints(
-        TableHints::new()
-            .with_sortable(vec![
-                "job_name".to_string(),
-                "last_run".to_string(),
-                "run_count".to_string(),
-            ])
-            .filterable(),
-    )
+    let content_repo = ContentRepository::new(pool.clone());
+    content_repo
+        .delete(uuid_str)
+        .await
+        .map_err(|e| McpError::internal_error(format!("Failed to delete content: {e}"), None))?;
+
+    logger
+        .debug(
+            "operations",
+            &format!("Content deleted | uuid={uuid_str}"),
+        )
+        .await
+        .ok();
+
+    build_delete_response("Content Deleted", uuid_str, mcp_execution_id)
+}
+
+fn build_delete_response(
+    title: &str,
+    uuid_str: &str,
+    mcp_execution_id: &McpExecutionId,
+) -> Result<CallToolResult, McpError> {
+    let dashboard = DashboardArtifact::new(title)
+        .with_hints(DashboardHints::new().with_layout(LayoutMode::Vertical))
+        .add_section(
+            DashboardSection::new("status", "Status", SectionType::MetricsCards)
+                .with_data(json!({
+                    "cards": [{
+                        "title": title,
+                        "value": &uuid_str[..8.min(uuid_str.len())],
+                        "icon": "trash-2",
+                        "status": "success"
+                    }]
+                }))
+                .with_layout(SectionLayout {
+                    width: LayoutWidth::Full,
+                    order: 1,
+                }),
+        );
+
+    let metadata = ExecutionMetadata::new().tool("operations");
+    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let tool_response = ToolResponse::new(
+        &artifact_id,
+        mcp_execution_id.clone(),
+        dashboard,
+        metadata.clone(),
+    );
+
+    Ok(CallToolResult {
+        content: vec![Content::text(format!("{title}: {uuid_str}"))],
+        structured_content: Some(tool_response.to_json()),
+        is_error: Some(false),
+        meta: metadata.to_meta(),
+    })
 }

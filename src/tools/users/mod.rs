@@ -1,12 +1,12 @@
 mod models;
-mod repository;
+pub mod repository;
 mod schema;
 
 pub use schema::{users_input_schema, users_output_schema};
 
 use anyhow::Result;
 use repository::UsersRepository;
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
 use systemprompt_core_logging::LogService;
@@ -25,11 +25,12 @@ pub async fn handle_users(
     let args = request.arguments.unwrap_or_default();
     let user_id = args.get("user_id").and_then(|v| v.as_str());
 
-    let repo = UsersRepository::new(pool.clone());
+    let repo = UsersRepository::new(pool.clone())
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if let Some(id) = user_id {
         logger
-            .debug("users_tool", &format!("Listing users | user_id={}", id))
+            .debug("users_tool", &format!("Listing users | user_id={id}"))
             .await
             .ok();
     } else {

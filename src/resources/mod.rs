@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{model::{PaginatedRequestParam, ListResourcesResult, ReadResourceRequestParam, ReadResourceResult}, service::RequestContext, ErrorData as McpError, RoleServer};
 use systemprompt_core_database::DbPool;
 
 #[derive(Clone)]
@@ -9,7 +9,7 @@ pub struct AdminResources {
 }
 
 impl AdminResources {
-    pub fn new(db_pool: DbPool, server_name: String) -> Self {
+    #[must_use] pub fn new(db_pool: DbPool, server_name: String) -> Self {
         Self {
             _db_pool: db_pool,
             _server_name: server_name,

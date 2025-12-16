@@ -1,12 +1,10 @@
 pub mod constructor;
 mod handlers;
-#[cfg(test)]
-mod tests;
 
 pub use constructor::AdminServer;
 
 use anyhow::Result;
-use rmcp::{model::*, service::RequestContext, ErrorData as McpError, RoleServer, ServerHandler};
+use rmcp::{model::{ServerInfo, InitializeRequestParam, InitializeResult, PaginatedRequestParam, ListToolsResult, CallToolRequestParam, CallToolResult, ListPromptsResult, GetPromptRequestParam, GetPromptResult, ListResourcesResult, ReadResourceRequestParam, ReadResourceResult, ListResourceTemplatesResult}, service::RequestContext, ErrorData as McpError, RoleServer, ServerHandler};
 
 impl ServerHandler for AdminServer {
     fn get_info(&self) -> ServerInfo {

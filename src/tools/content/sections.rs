@@ -10,7 +10,7 @@ use super::models::{ContentPerformance, DailyViewData, Referrer, TrafficSummary}
 pub fn create_traffic_summary_cards(summary: &TrafficSummary) -> DashboardSection {
     let format_trend = |diff: i32, percent: f64| -> String {
         let sign = if diff >= 0 { "+" } else { "" };
-        format!("{}{} visitors ({:+.1}%)", sign, diff, percent)
+        format!("{sign}{diff} visitors ({percent:+.1}%)")
     };
 
     let cards = vec![
@@ -103,7 +103,7 @@ pub fn create_daily_views_chart(daily_views: &[DailyViewData]) -> DashboardSecti
         content_map
             .entry(view.title.clone())
             .or_default()
-            .push((view.view_date.clone(), view.daily_views as f64));
+            .push((view.view_date.clone(), f64::from(view.daily_views)));
     }
 
     let top_content_with_totals: Vec<(String, i32)> = {

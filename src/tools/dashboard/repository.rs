@@ -1,13 +1,12 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use systemprompt_core_database::DbPool;
 
 use super::models::{
-    AgentToolUsage, AgentUsageRow, ConversationMetrics, DailyTrend, RecentConversation,
-    ToolNameUsage, ToolUsageData, ToolUsageRow, TrafficSummary,
+    parse_flexible_timestamp, AgentToolUsage, AgentUsageRow, ConversationMetrics, DailyTrend,
+    RecentConversation, ToolNameUsage, ToolUsageData, ToolUsageRow, TrafficSummary,
 };
 
 pub struct DashboardRepository {
@@ -15,9 +14,9 @@ pub struct DashboardRepository {
 }
 
 impl DashboardRepository {
-    pub fn new(db: DbPool) -> Self {
-        let pool = db.pool_arc().expect("Database must be PostgreSQL");
-        Self { pool }
+    pub fn new(db: DbPool) -> Result<Self> {
+        let pool = db.pool_arc()?;
+        Ok(Self { pool })
     }
 
     pub async fn get_conversation_metrics(&self) -> Result<ConversationMetrics> {
@@ -67,7 +66,7 @@ impl DashboardRepository {
             ORDER BY uc.created_at DESC
             LIMIT $1
             "#,
-            limit as i64
+            i64::from(limit)
         )
         .fetch_all(&*self.pool)
         .await?;
@@ -105,6 +104,9 @@ impl DashboardRepository {
                 COUNT(DISTINCT user_id) as unique_users
             FROM user_sessions
             WHERE started_at >= NOW() - ($1 || ' days')::INTERVAL
+              AND is_bot = false
+              AND is_scanner = false
+              AND request_count > 0
             "#,
             days.to_string()
         )
@@ -177,14 +179,14 @@ impl DashboardRepository {
         let mut agent_data: Vec<AgentUsageRow> = agent_map
             .into_iter()
             .filter(|(name, _)| name != "Unknown")
-            .map(|(name, (h24, d7, d30))| AgentUsageRow {
+            .map(|(name, (hours_24, days_7, days_30))| AgentUsageRow {
                 agent_name: name,
-                h24,
-                d7,
-                d30,
+                hours_24,
+                days_7,
+                days_30,
             })
             .collect();
-        agent_data.sort_by(|a, b| b.h24.cmp(&a.h24));
+        agent_data.sort_by(|a, b| b.hours_24.cmp(&a.hours_24));
 
         let tool_usage_24h = self.get_tool_usage_by_tool_name(24, 10).await?;
         let tool_usage_7d = self.get_tool_usage_by_tool_name(168, 10).await?;
@@ -212,14 +214,14 @@ impl DashboardRepository {
 
         let mut tool_data: Vec<ToolUsageRow> = tool_map
             .into_iter()
-            .map(|(name, (h24, d7, d30))| ToolUsageRow {
+            .map(|(name, (hours_24, days_7, days_30))| ToolUsageRow {
                 tool_name: name,
-                h24,
-                d7,
-                d30,
+                hours_24,
+                days_7,
+                days_30,
             })
             .collect();
-        tool_data.sort_by(|a, b| b.h24.cmp(&a.h24));
+        tool_data.sort_by(|a, b| b.hours_24.cmp(&a.hours_24));
 
         Ok(ToolUsageData {
             agent_data,
@@ -241,7 +243,7 @@ impl DashboardRepository {
             LIMIT $2
             "#,
             hours.to_string(),
-            limit as i64
+            i64::from(limit)
         )
         .fetch_all(&*self.pool)
         .await?;
@@ -272,7 +274,7 @@ impl DashboardRepository {
             LIMIT $2
             "#,
             hours.to_string(),
-            limit as i64
+            i64::from(limit)
         )
         .fetch_all(&*self.pool)
         .await?;
@@ -285,14 +287,4 @@ impl DashboardRepository {
             })
             .collect())
     }
-}
-
-fn parse_flexible_timestamp(timestamp_str: &str) -> Option<DateTime<Utc>> {
-    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(timestamp_str, "%Y-%m-%d %H:%M:%S%.f") {
-        return Some(dt.and_utc());
-    }
-    if let Ok(dt) = DateTime::parse_from_rfc3339(timestamp_str) {
-        return Some(dt.with_timezone(&Utc));
-    }
-    None
 }

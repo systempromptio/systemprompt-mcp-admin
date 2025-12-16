@@ -10,9 +10,9 @@ pub struct UsersRepository {
 }
 
 impl UsersRepository {
-    pub fn new(db: DbPool) -> Self {
-        let pool = db.pool_arc().expect("Database must be PostgreSQL");
-        Self { pool }
+    pub fn new(db: DbPool) -> Result<Self> {
+        let pool = db.pool_arc()?;
+        Ok(Self { pool })
     }
 
     pub async fn list_users(&self, user_id: Option<&str>) -> Result<Vec<User>> {

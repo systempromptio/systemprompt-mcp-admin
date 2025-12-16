@@ -93,7 +93,5 @@ pub fn create_logs_table_section(logs: &[LogEntry], page: i32) -> DashboardSecti
 }
 
 fn format_timestamp_as_readable(timestamp: &str) -> String {
-    chrono::DateTime::parse_from_rfc3339(timestamp)
-        .map(|parsed| parsed.format("%b %d, %Y %H:%M:%S").to_string())
-        .unwrap_or_else(|_| timestamp.to_string())
+    chrono::DateTime::parse_from_rfc3339(timestamp).map_or_else(|_| timestamp.to_string(), |parsed| parsed.format("%b %d, %Y %H:%M:%S").to_string())
 }

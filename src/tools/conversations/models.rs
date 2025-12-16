@@ -1,4 +1,4 @@
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, sqlx::FromRow)]
 pub struct ConversationSummary {
     pub total_conversations: i32,
     pub total_messages: i32,
@@ -7,15 +7,7 @@ pub struct ConversationSummary {
     pub failed_conversations: i32,
 }
 
-#[derive(serde::Serialize)]
-pub struct EvaluationStats {
-    pub evaluated_conversations: i32,
-    pub avg_quality_score: f64,
-    pub goal_achievement_rate: f64,
-    pub avg_user_satisfaction: f64,
-}
-
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, sqlx::FromRow)]
 pub struct RecentConversation {
     pub context_id: String,
     pub conversation_name: Option<String>,
@@ -30,10 +22,12 @@ pub struct RecentConversation {
     pub duration_status: Option<String>,
     pub status: String,
     pub message_count: i32,
-    pub quality_score: Option<i32>,
-    pub goal_achieved: Option<String>,
-    pub user_satisfaction: Option<i32>,
-    pub primary_category: Option<String>,
-    pub topics: Option<String>,
-    pub evaluation_summary: Option<String>,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct ConversationTrendRow {
+    pub conversations_1h: i64,
+    pub conversations_24h: i64,
+    pub conversations_7d: i64,
+    pub conversations_30d: i64,
 }
