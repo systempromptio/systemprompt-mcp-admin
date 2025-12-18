@@ -8,8 +8,8 @@ use systemprompt_models::artifacts::{DashboardArtifact, ToolResponse};
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["list_files", "delete_file", "delete_content"],
-                "description": "Operation to perform: list_files, delete_file, or delete_content"
+                "enum": ["list_files", "delete_file", "delete_content", "validate_skills", "validate_agents", "validate_config"],
+                "description": "Operation to perform: list_files, delete_file, delete_content, validate_skills, validate_agents, or validate_config"
             },
             "uuid": {
                 "type": "string",

@@ -1,6 +1,8 @@
 mod schema;
+mod validation;
 
 pub use schema::{operations_input_schema, operations_output_schema};
+pub use validation::{handle_validate_agents, handle_validate_config, handle_validate_skills};
 
 use chrono::Utc;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
@@ -34,9 +36,12 @@ pub async fn handle_operations(
         "list_files" => handle_list_files(pool, &args, &logger, mcp_execution_id).await,
         "delete_file" => handle_delete_file(pool, &args, &logger, mcp_execution_id).await,
         "delete_content" => handle_delete_content(pool, &args, &logger, mcp_execution_id).await,
+        "validate_skills" => handle_validate_skills(&args, &logger, mcp_execution_id).await,
+        "validate_agents" => handle_validate_agents(&args, &logger, mcp_execution_id).await,
+        "validate_config" => handle_validate_config(&args, &logger, mcp_execution_id).await,
         _ => Err(McpError::invalid_params(
             format!(
-                "Unknown action: {action}. Valid actions: list_files, delete_file, delete_content"
+                "Unknown action: {action}. Valid actions: list_files, delete_file, delete_content, validate_skills, validate_agents, validate_config"
             ),
             None,
         )),
