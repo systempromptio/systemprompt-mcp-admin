@@ -4,7 +4,7 @@ use systemprompt_admin::AdminServer;
 use systemprompt_core_logging::LogService;
 use systemprompt_core_system::AppContext;
 use systemprompt_identifiers::McpServerId;
-use systemprompt_models::Config;
+use systemprompt_models::{Config, ProfileBootstrap};
 use tokio::net::TcpListener;
 
 /// Default service ID - MUST match the key in `mcp_servers` config
@@ -13,7 +13,7 @@ const DEFAULT_PORT: u16 = 5002;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenvy::dotenv().ok();
+    ProfileBootstrap::init(None).context("Failed to initialize profile")?;
     Config::init().context("Failed to initialize configuration")?;
 
     let ctx = Arc::new(
