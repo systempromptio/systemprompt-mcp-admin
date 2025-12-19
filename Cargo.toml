@@ -39,7 +39,6 @@ sha2 = "0.10"
 
 # Logging/tracing
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Core modules from systemprompt-core repo
 systemprompt-core-system = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
@@ -47,7 +46,7 @@ systemprompt-core-mcp = { git = "https://github.com/systempromptio/systemprompt-
 systemprompt-core-users = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
 systemprompt-core-database = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
 systemprompt-core-agent = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-config = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
+systemprompt-core-logging = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
 systemprompt-core-blog = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
 systemprompt-core-files = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
 systemprompt-core-scheduler = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }

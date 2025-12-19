@@ -2,7 +2,7 @@ use rmcp::{model::{CallToolResult, Content}, ErrorData as McpError};
 use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use systemprompt_core_config::ConfigLoader;
+use systemprompt_models::ConfigLoader;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
     Column, ColumnType, DashboardArtifact, DashboardHints, DashboardSection, ExecutionMetadata,

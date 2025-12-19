@@ -460,9 +460,9 @@ checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
 
 [[package]]
 name = "cc"
-version = "1.2.49"
+version = "1.2.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90583009037521a116abf44494efecd645ba48b6622457080f080b85544e2215"
+checksum = "9f50d563227a1c37cc0a263f64eca3334388c01c5e4c4861a9def205c614383c"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -2323,9 +2323,9 @@ dependencies = [
 
 [[package]]
 name = "portable-atomic"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
+checksum = "f59e70c4aef1e55797c2e8fd94a4f2a973fc972cfde0e0b05f683667b0cd39dd"
 
 [[package]]
 name = "potential_utf"
@@ -3625,7 +3625,6 @@ dependencies = [
  "sqlx",
  "systemprompt-core-agent",
  "systemprompt-core-blog",
- "systemprompt-core-config",
  "systemprompt-core-database",
  "systemprompt-core-files",
  "systemprompt-core-logging",
@@ -3638,13 +3637,14 @@ dependencies = [
  "systemprompt-traits",
  "tokio",
  "tokio-test",
+ "tracing",
  "uuid",
 ]
 
 [[package]]
 name = "systemprompt-core-agent"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3674,7 +3674,6 @@ dependencies = [
  "sqlx",
  "systemprompt-core-ai",
  "systemprompt-core-blog",
- "systemprompt-core-config",
  "systemprompt-core-database",
  "systemprompt-core-logging",
  "systemprompt-core-mcp",
@@ -3701,7 +3700,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-ai"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3740,12 +3739,11 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-blog"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "axum",
  "chrono",
- "clap",
  "dotenvy",
  "hex",
  "pulldown-cmark",
@@ -3756,13 +3754,13 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "sqlx",
- "systemprompt-core-config",
  "systemprompt-core-database",
  "systemprompt-core-logging",
  "systemprompt-core-system",
  "systemprompt-core-users",
  "systemprompt-identifiers",
  "systemprompt-models",
+ "thiserror 2.0.17",
  "tokio",
  "tower",
  "tracing",
@@ -3772,38 +3770,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "systemprompt-core-config"
-version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "chrono",
- "dotenvy",
- "inventory",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "sqlx",
- "systemprompt-core-database",
- "systemprompt-core-logging",
- "systemprompt-core-system",
- "systemprompt-models",
- "systemprompt-traits",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "urlencoding",
- "uuid",
- "validator",
-]
-
-[[package]]
 name = "systemprompt-core-database"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3813,6 +3782,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "systemprompt-identifiers",
  "systemprompt-traits",
  "thiserror 2.0.17",
  "tokio",
@@ -3823,7 +3793,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-files"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3841,7 +3811,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-logging"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3871,7 +3841,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-mcp"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3890,7 +3860,6 @@ dependencies = [
  "serde_yaml",
  "sqlx",
  "sse-stream",
- "systemprompt-core-config",
  "systemprompt-core-database",
  "systemprompt-core-logging",
  "systemprompt-core-oauth",
@@ -3910,7 +3879,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-oauth"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3948,7 +3917,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-scheduler"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3965,7 +3934,6 @@ dependencies = [
  "systemprompt-core-agent",
  "systemprompt-core-ai",
  "systemprompt-core-blog",
- "systemprompt-core-config",
  "systemprompt-core-database",
  "systemprompt-core-files",
  "systemprompt-core-logging",
@@ -3988,7 +3956,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-system"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4037,7 +4005,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-core-users"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4050,7 +4018,6 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sqlx",
- "systemprompt-core-config",
  "systemprompt-core-database",
  "systemprompt-core-logging",
  "systemprompt-core-system",
@@ -4067,19 +4034,19 @@ dependencies = [
 [[package]]
 name = "systemprompt-identifiers"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "schemars",
  "serde",
  "sqlx",
- "systemprompt-core-database",
+ "systemprompt-traits",
  "uuid",
 ]
 
 [[package]]
 name = "systemprompt-models"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4108,7 +4075,7 @@ dependencies = [
 [[package]]
 name = "systemprompt-traits"
 version = "0.0.41"
-source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#3d3f486a6400907620f9b0904c49557cafa302dd"
+source = "git+https://github.com/systempromptio/systemprompt-core?branch=main#66ca274af27815832f49f6ba8bb422b1c4cebbe5"
 dependencies = [
  "anyhow",
  "async-trait",

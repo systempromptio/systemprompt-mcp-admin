@@ -33,22 +33,14 @@ impl AdminServer {
         _request: InitializeRequestParam,
         context: RequestContext<RoleServer>,
     ) -> Result<InitializeResult, McpError> {
-        self.system_log
-            .info("mcp_initialize", "=== ADMIN SERVER INITIALIZE ===")
-            .await
-            .ok();
+        tracing::info!("=== ADMIN SERVER INITIALIZE ===");
 
         if let Some(parts) = context.extensions.get::<axum::http::request::Parts>() {
-            self.system_log
-                .info(
-                    "mcp_admin",
-                    &format!(
-                        "Admin MCP initialized - URI: {}, server: {}",
-                        parts.uri, self.service_id
-                    ),
-                )
-                .await
-                .ok();
+            tracing::info!(
+                uri = %parts.uri,
+                service_id = %self.service_id,
+                "Admin MCP initialized"
+            );
         }
 
         Ok(self.get_info())
