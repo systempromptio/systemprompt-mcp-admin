@@ -11,7 +11,6 @@ use sqlx::types::Uuid;
 use systemprompt_core_blog::repository::ContentRepository;
 use systemprompt_core_database::DbPool;
 use systemprompt_core_files::File;
-use systemprompt_core_logging::LogService;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
     Column, ColumnType, DashboardArtifact, DashboardHints, DashboardSection, ExecutionMetadata,
@@ -22,7 +21,6 @@ pub async fn handle_operations(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
-    logger: LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
@@ -33,12 +31,12 @@ pub async fn handle_operations(
         .ok_or_else(|| McpError::invalid_params("action is required", None))?;
 
     match action {
-        "list_files" => handle_list_files(pool, &args, &logger, mcp_execution_id).await,
-        "delete_file" => handle_delete_file(pool, &args, &logger, mcp_execution_id).await,
-        "delete_content" => handle_delete_content(pool, &args, &logger, mcp_execution_id).await,
-        "validate_skills" => handle_validate_skills(&args, &logger, mcp_execution_id).await,
-        "validate_agents" => handle_validate_agents(&args, &logger, mcp_execution_id).await,
-        "validate_config" => handle_validate_config(&args, &logger, mcp_execution_id).await,
+        "list_files" => handle_list_files(pool, &args, mcp_execution_id).await,
+        "delete_file" => handle_delete_file(pool, &args, mcp_execution_id).await,
+        "delete_content" => handle_delete_content(pool, &args, mcp_execution_id).await,
+        "validate_skills" => handle_validate_skills(&args, mcp_execution_id).await,
+        "validate_agents" => handle_validate_agents(&args, mcp_execution_id).await,
+        "validate_config" => handle_validate_config(&args, mcp_execution_id).await,
         _ => Err(McpError::invalid_params(
             format!(
                 "Unknown action: {action}. Valid actions: list_files, delete_file, delete_content, validate_skills, validate_agents, validate_config"
@@ -51,19 +49,12 @@ pub async fn handle_operations(
 async fn handle_list_files(
     pool: &DbPool,
     args: &serde_json::Map<String, JsonValue>,
-    logger: &LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let limit = args.get("limit").and_then(serde_json::Value::as_i64).unwrap_or(100);
     let offset = args.get("offset").and_then(serde_json::Value::as_i64).unwrap_or(0);
 
-    logger
-        .debug(
-            "operations",
-            &format!("Listing files | limit={limit}, offset={offset}"),
-        )
-        .await
-        .ok();
+    tracing::debug!(limit = limit, offset = offset, "Listing files");
 
     let pg_pool = pool
         .pool_arc()
@@ -98,13 +89,7 @@ async fn handle_list_files(
     .await
     .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    logger
-        .debug(
-            "operations",
-            &format!("Files listed | count={}", files.len()),
-        )
-        .await
-        .ok();
+    tracing::debug!(count = files.len(), "Files listed");
 
     let items: Vec<JsonValue> = files
         .iter()
@@ -160,7 +145,6 @@ async fn handle_list_files(
 async fn handle_delete_file(
     pool: &DbPool,
     args: &serde_json::Map<String, JsonValue>,
-    logger: &LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let uuid_str = args
@@ -171,10 +155,7 @@ async fn handle_delete_file(
     let uuid = Uuid::parse_str(uuid_str)
         .map_err(|e| McpError::invalid_params(format!("Invalid UUID: {e}"), None))?;
 
-    logger
-        .debug("operations", &format!("Deleting file | uuid={uuid_str}"))
-        .await
-        .ok();
+    tracing::debug!(uuid = %uuid_str, "Deleting file");
 
     let pg_pool = pool
         .pool_arc()
@@ -186,10 +167,7 @@ async fn handle_delete_file(
         .await
         .map_err(|e| McpError::internal_error(format!("Failed to delete file: {e}"), None))?;
 
-    logger
-        .debug("operations", &format!("File deleted | uuid={uuid_str}"))
-        .await
-        .ok();
+    tracing::debug!(uuid = %uuid_str, "File deleted");
 
     build_delete_response("File Deleted", uuid_str, mcp_execution_id)
 }
@@ -197,20 +175,13 @@ async fn handle_delete_file(
 async fn handle_delete_content(
     pool: &DbPool,
     args: &serde_json::Map<String, JsonValue>,
-    logger: &LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let uuid_str = args.get("uuid").and_then(|v| v.as_str()).ok_or_else(|| {
         McpError::invalid_params("uuid is required for delete_content action", None)
     })?;
 
-    logger
-        .debug(
-            "operations",
-            &format!("Deleting content | uuid={uuid_str}"),
-        )
-        .await
-        .ok();
+    tracing::debug!(uuid = %uuid_str, "Deleting content");
 
     let content_repo = ContentRepository::new(pool.clone());
     content_repo
@@ -218,13 +189,7 @@ async fn handle_delete_content(
         .await
         .map_err(|e| McpError::internal_error(format!("Failed to delete content: {e}"), None))?;
 
-    logger
-        .debug(
-            "operations",
-            &format!("Content deleted | uuid={uuid_str}"),
-        )
-        .await
-        .ok();
+    tracing::debug!(uuid = %uuid_str, "Content deleted");
 
     build_delete_response("Content Deleted", uuid_str, mcp_execution_id)
 }

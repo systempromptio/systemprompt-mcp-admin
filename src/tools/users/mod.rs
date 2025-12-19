@@ -9,7 +9,6 @@ use repository::UsersRepository;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
     Column, ColumnType, ExecutionMetadata, TableArtifact, ToolResponse,
@@ -19,7 +18,6 @@ pub async fn handle_users(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
-    logger: LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
@@ -28,27 +26,14 @@ pub async fn handle_users(
     let repo = UsersRepository::new(pool.clone())
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    if let Some(id) = user_id {
-        logger
-            .debug("users_tool", &format!("Listing users | user_id={id}"))
-            .await
-            .ok();
-    } else {
-        logger.debug("users_tool", "Listing all users").await.ok();
-    }
+    tracing::debug!(user_id = ?user_id, "Listing users");
 
     let users = repo
         .list_users(user_id)
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    logger
-        .debug(
-            "users_tool",
-            &format!("Users listed | count={}", users.len()),
-        )
-        .await
-        .ok();
+    tracing::debug!(count = users.len(), "Users listed");
 
     let items: Vec<JsonValue> = users.iter().map(|u| json!(u)).collect();
 

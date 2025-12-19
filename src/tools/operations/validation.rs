@@ -3,7 +3,6 @@ use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use systemprompt_core_config::ConfigLoader;
-use systemprompt_core_logging::LogService;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
     Column, ColumnType, DashboardArtifact, DashboardHints, DashboardSection, ExecutionMetadata,
@@ -68,13 +67,9 @@ fn get_config_path() -> String {
 /// Validate skills configuration
 pub async fn handle_validate_skills(
     _args: &serde_json::Map<String, JsonValue>,
-    logger: &LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
-    logger
-        .info("validation", "Starting skills validation")
-        .await
-        .ok();
+    tracing::info!("Starting skills validation");
 
     let services_path = get_services_path();
     let skills_dir = services_path.join("skills");
@@ -204,10 +199,12 @@ pub async fn handle_validate_skills(
         }
     }
 
-    logger
-        .info("validation", &format!("Skills validation complete: {} passed, {} warnings, {} errors", result.passed, result.warnings, result.errors))
-        .await
-        .ok();
+    tracing::info!(
+        passed = result.passed,
+        warnings = result.warnings,
+        errors = result.errors,
+        "Skills validation complete"
+    );
 
     build_validation_response("Skills Validation", &result, mcp_execution_id)
 }
@@ -215,13 +212,9 @@ pub async fn handle_validate_skills(
 /// Validate agents configuration
 pub async fn handle_validate_agents(
     _args: &serde_json::Map<String, JsonValue>,
-    logger: &LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
-    logger
-        .info("validation", "Starting agents validation")
-        .await
-        .ok();
+    tracing::info!("Starting agents validation");
 
     let services_path = get_services_path();
     let agents_dir = services_path.join("agents");
@@ -362,10 +355,12 @@ pub async fn handle_validate_agents(
         }
     }
 
-    logger
-        .info("validation", &format!("Agents validation complete: {} passed, {} warnings, {} errors", result.passed, result.warnings, result.errors))
-        .await
-        .ok();
+    tracing::info!(
+        passed = result.passed,
+        warnings = result.warnings,
+        errors = result.errors,
+        "Agents validation complete"
+    );
 
     build_validation_response("Agents Validation", &result, mcp_execution_id)
 }
@@ -373,13 +368,9 @@ pub async fn handle_validate_agents(
 /// Validate full configuration using core ConfigLoader
 pub async fn handle_validate_config(
     _args: &serde_json::Map<String, JsonValue>,
-    logger: &LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
-    logger
-        .info("validation", "Starting full configuration validation using core loader")
-        .await
-        .ok();
+    tracing::info!("Starting full configuration validation using core loader");
 
     let config_path = get_config_path();
     let mut result = ValidationResult::default();
@@ -388,11 +379,11 @@ pub async fn handle_validate_config(
     match ConfigLoader::validate_file(&config_path).await {
         Ok(()) => {
             result.add_pass();
-            logger.info("validation", "Core config validation passed").await.ok();
+            tracing::info!("Core config validation passed");
         }
         Err(e) => {
             result.add_error("config", &config_path, &format!("Validation failed: {e}"));
-            logger.error("validation", &format!("Core config validation failed: {e}")).await.ok();
+            tracing::error!(error = %e, "Core config validation failed");
         }
     }
 
@@ -419,10 +410,12 @@ pub async fn handle_validate_config(
         result.errors += agents_result.errors;
     }
 
-    logger
-        .info("validation", &format!("Full validation complete: {} passed, {} warnings, {} errors", result.passed, result.warnings, result.errors))
-        .await
-        .ok();
+    tracing::info!(
+        passed = result.passed,
+        warnings = result.warnings,
+        errors = result.errors,
+        "Full validation complete"
+    );
 
     build_validation_response("Configuration Validation", &result, mcp_execution_id)
 }

@@ -5,7 +5,6 @@ mod sections;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
@@ -45,7 +44,6 @@ pub async fn handle_logs(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
-    logger: LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
@@ -54,15 +52,7 @@ pub async fn handle_logs(
     let limit = args.get("limit").and_then(serde_json::Value::as_i64).unwrap_or(1000) as i32;
     let level = args.get("level").and_then(|v| v.as_str()).map(String::from);
 
-    logger
-        .debug(
-            "logs_tool",
-            &format!(
-                "Fetching logs - page: {page}, limit: {limit}, level: {level:?}"
-            ),
-        )
-        .await
-        .ok();
+    tracing::debug!(page = page, limit = limit, level = ?level, "Fetching logs");
 
     let repo = LogsRepository::new(pool.clone())
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;

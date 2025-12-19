@@ -4,7 +4,6 @@ use std::sync::Arc;
 use systemprompt_core_agent::services::mcp::ToolResultHandler;
 use systemprompt_core_agent::services::ArtifactPublishingService;
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_core_system::AppContext;
 use systemprompt_identifiers::McpServerId;
 
@@ -17,7 +16,6 @@ pub struct AdminServer {
     pub(super) service_id: McpServerId,
     pub(super) prompts: Arc<AdminPrompts>,
     pub(super) resources: Arc<AdminResources>,
-    pub(super) system_log: LogService,
     pub(super) tool_result_handler: Arc<ToolResultHandler>,
     pub(super) publishing_service: Arc<ArtifactPublishingService>,
     pub(super) tool_schemas: Arc<HashMap<String, serde_json::Value>>,
@@ -28,13 +26,8 @@ impl AdminServer {
     #[must_use] pub fn new(db_pool: DbPool, service_id: McpServerId, app_context: Arc<AppContext>) -> Self {
         let prompts = Arc::new(AdminPrompts::new(db_pool.clone(), service_id.to_string()));
         let resources = Arc::new(AdminResources::new(db_pool.clone(), service_id.to_string()));
-        let system_log = LogService::system(db_pool.clone());
-        let tool_result_handler =
-            Arc::new(ToolResultHandler::new(db_pool.clone(), system_log.clone()));
-        let publishing_service = Arc::new(ArtifactPublishingService::new(
-            db_pool.clone(),
-            system_log.clone(),
-        ));
+        let tool_result_handler = Arc::new(ToolResultHandler::new(db_pool.clone()));
+        let publishing_service = Arc::new(ArtifactPublishingService::new(db_pool.clone()));
 
         let tool_schemas = Self::build_tool_schema_cache();
 
@@ -43,7 +36,6 @@ impl AdminServer {
             service_id,
             prompts,
             resources,
-            system_log,
             tool_result_handler,
             publishing_service,
             tool_schemas: Arc::new(tool_schemas),

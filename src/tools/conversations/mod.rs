@@ -6,7 +6,6 @@ use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::Requ
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_agent::{repository::TaskRepository, Part};
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
@@ -61,13 +60,12 @@ pub async fn handle_conversations(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
-    logger: LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
 
     if let Some(context_id) = args.get("context_id").and_then(|v| v.as_str()) {
-        return handle_conversation_details(pool, context_id, &logger, mcp_execution_id).await;
+        return handle_conversation_details(pool, context_id, mcp_execution_id).await;
     }
 
     let time_range = args
@@ -81,15 +79,13 @@ pub async fn handle_conversations(
 
     let per_page = args.get("per_page").and_then(serde_json::Value::as_i64).unwrap_or(10) as i32;
 
-    logger
-        .debug(
-            "conversations_tool",
-            &format!(
-                "Generating analytics | type=conversations, period={time_range}, agent_filter={agent_name:?}, page={page}, per_page={per_page}"
-            ),
-        )
-        .await
-        .ok();
+    tracing::debug!(
+        time_range = %time_range,
+        agent_filter = ?agent_name,
+        page = page,
+        per_page = per_page,
+        "Generating conversation analytics"
+    );
 
     let interval = match time_range {
         "1h" => "1 hour",
@@ -177,16 +173,9 @@ pub async fn handle_conversations(
 async fn handle_conversation_details(
     pool: &DbPool,
     context_id: &str,
-    logger: &LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
-    logger
-        .debug(
-            "conversations",
-            &format!("Retrieving messages | context_id={context_id}"),
-        )
-        .await
-        .ok();
+    tracing::debug!(context_id = %context_id, "Retrieving messages");
 
     let task_repo = TaskRepository::new(pool.clone());
 
@@ -224,13 +213,7 @@ async fn handle_conversation_details(
         "messages": messages,
     });
 
-    logger
-        .debug(
-            "conversations",
-            &format!("Messages retrieved | count={}", messages.len()),
-        )
-        .await
-        .ok();
+    tracing::debug!(count = messages.len(), "Messages retrieved");
 
     let metadata = ExecutionMetadata::new().tool("conversations");
     let artifact_id = uuid::Uuid::new_v4().to_string();

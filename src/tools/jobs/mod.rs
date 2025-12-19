@@ -2,7 +2,6 @@ use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::Requ
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_core_scheduler::models::ScheduledJob;
 use systemprompt_core_scheduler::repository::SchedulerRepository;
 use systemprompt_core_scheduler::services::jobs;
@@ -53,7 +52,6 @@ pub async fn handle_jobs(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
-    logger: LogService,
     app_context: Arc<AppContext>,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
@@ -64,12 +62,9 @@ pub async fn handle_jobs(
         .and_then(|v| v.as_str());
 
     if let Some(job_name) = execute_job {
-        logger
-            .info("jobs", &format!("Spawning job in background: {job_name}"))
-            .await
-            .ok();
+        tracing::info!(job_name = %job_name, "Spawning job in background");
 
-        spawn_job(job_name, pool.clone(), logger.clone(), app_context);
+        spawn_job(job_name, pool.clone(), app_context);
     }
 
     let repo = SchedulerRepository::new(pool.clone());
@@ -102,66 +97,49 @@ pub async fn handle_jobs(
     })
 }
 
-fn spawn_job(job_name: &str, pool: DbPool, logger: LogService, app_context: Arc<AppContext>) {
+fn spawn_job(job_name: &str, pool: DbPool, app_context: Arc<AppContext>) {
     let job_name = job_name.to_string();
     let pool = pool.clone();
-    let logger = logger.clone();
     let app_context = app_context.clone();
 
     tokio::spawn(async move {
-        logger
-            .info("jobs", &format!("Starting manual execution: {job_name}"))
-            .await
-            .ok();
+        tracing::info!(job_name = %job_name, "Starting manual execution");
 
         let result = match job_name.as_str() {
             "cleanup_anonymous_users" => {
-                jobs::cleanup_anonymous_users(pool, logger.clone(), app_context).await
+                jobs::cleanup_anonymous_users(pool, app_context).await
             }
             "cleanup_inactive_sessions" => {
-                jobs::cleanup_inactive_sessions(pool, logger.clone(), app_context).await
+                jobs::cleanup_inactive_sessions(pool, app_context).await
             }
-            "database_cleanup" => jobs::database_cleanup(pool, logger.clone(), app_context).await,
-            "publish_content" => jobs::publish_content(pool, logger.clone(), app_context).await,
+            "database_cleanup" => jobs::database_cleanup(pool, app_context).await,
+            "publish_content" => jobs::publish_content(pool, app_context).await,
             "evaluate_conversations" => {
-                jobs::evaluate_conversations(pool, logger.clone(), app_context).await
+                jobs::evaluate_conversations(pool, app_context).await
             }
-            "ingest_content" => jobs::ingest_content(pool, logger.clone(), app_context).await,
-            "ingest_files" => jobs::ingest_files(pool, logger.clone()).await,
+            "ingest_content" => jobs::ingest_content(pool, app_context).await,
+            "ingest_files" => jobs::ingest_files(pool).await,
             "optimize_images" => {
-                systemprompt_core_scheduler::services::static_content::optimize_images(
-                    pool,
-                    logger.clone(),
-                )
-                .await
+                systemprompt_core_scheduler::services::static_content::optimize_images(pool).await
             }
             "regenerate_static_content" => {
-                jobs::regenerate_static_content(pool, logger.clone(), app_context).await
+                jobs::regenerate_static_content(pool, app_context).await
             }
             "rebuild_static_site" => {
-                jobs::rebuild_static_site(pool, logger.clone(), app_context).await
+                jobs::rebuild_static_site(pool, app_context).await
             }
             _ => {
-                logger
-                    .error("jobs", &format!("Unknown job: {job_name}"))
-                    .await
-                    .ok();
+                tracing::error!(job_name = %job_name, "Unknown job");
                 return;
             }
         };
 
         match result {
             Ok(()) => {
-                logger
-                    .info("jobs", &format!("Completed: {job_name}"))
-                    .await
-                    .ok();
+                tracing::info!(job_name = %job_name, "Job completed");
             }
             Err(e) => {
-                logger
-                    .error("jobs", &format!("Failed {job_name}: {e}"))
-                    .await
-                    .ok();
+                tracing::error!(job_name = %job_name, error = %e, "Job failed");
             }
         }
     });

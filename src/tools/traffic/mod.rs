@@ -5,7 +5,6 @@ mod sections;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
@@ -40,7 +39,6 @@ pub async fn handle_traffic(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
-    logger: LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
@@ -50,13 +48,7 @@ pub async fn handle_traffic(
         .and_then(|v| v.as_str())
         .unwrap_or("30d");
 
-    logger
-        .debug(
-            "traffic_tool",
-            &format!("Generating analytics | type=traffic, period={time_range}"),
-        )
-        .await
-        .ok();
+    tracing::debug!(time_range = %time_range, "Generating traffic analytics");
 
     let days = match time_range {
         "7d" => 7,

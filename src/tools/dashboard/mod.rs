@@ -5,7 +5,6 @@ mod sections;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_core_system::repository::analytics::CoreStatsRepository;
 use systemprompt_identifiers::McpExecutionId;
 use systemprompt_models::artifacts::{
@@ -41,7 +40,6 @@ pub async fn handle_dashboard(
     pool: &DbPool,
     request: CallToolRequestParam,
     _ctx: RequestContext<RoleServer>,
-    logger: LogService,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
@@ -50,13 +48,7 @@ pub async fn handle_dashboard(
         .and_then(|v| v.as_str())
         .unwrap_or("24h");
 
-    logger
-        .debug(
-            "dashboard",
-            &format!("Generating dashboard for: {time_range}"),
-        )
-        .await
-        .ok();
+    tracing::debug!(time_range = %time_range, "Generating dashboard");
 
     let days = match time_range {
         "24h" => 1,

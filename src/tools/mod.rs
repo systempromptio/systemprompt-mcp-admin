@@ -1,7 +1,6 @@
 use rmcp::{model::{Tool, CallToolRequestParam, CallToolResult, CallToolRequestMethod, ListToolsResult}, service::RequestContext, ErrorData as McpError, RoleServer};
 use std::sync::Arc;
 use systemprompt_core_database::DbPool;
-use systemprompt_core_logging::LogService;
 use systemprompt_core_system::AppContext;
 use systemprompt_identifiers::McpExecutionId;
 
@@ -58,37 +57,32 @@ pub async fn handle_tool_call(
     name: &str,
     request: CallToolRequestParam,
     ctx: RequestContext<RoleServer>,
-    logger: LogService,
     db_pool: &DbPool,
     app_context: &Arc<AppContext>,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     match name {
-        "dashboard" => handle_dashboard(db_pool, request, ctx, logger, mcp_execution_id).await,
-        "user" => handle_users(db_pool, request, ctx, logger, mcp_execution_id).await,
-        "traffic" => handle_traffic(db_pool, request, ctx, logger, mcp_execution_id).await,
-        "content" => handle_content(db_pool, request, ctx, logger, mcp_execution_id).await,
+        "dashboard" => handle_dashboard(db_pool, request, ctx, mcp_execution_id).await,
+        "user" => handle_users(db_pool, request, ctx, mcp_execution_id).await,
+        "traffic" => handle_traffic(db_pool, request, ctx, mcp_execution_id).await,
+        "content" => handle_content(db_pool, request, ctx, mcp_execution_id).await,
         "conversations" => {
-            handle_conversations(db_pool, request, ctx, logger, mcp_execution_id).await
+            handle_conversations(db_pool, request, ctx, mcp_execution_id).await
         }
-        "logs" => handle_logs(db_pool, request, ctx, logger, mcp_execution_id).await,
+        "logs" => handle_logs(db_pool, request, ctx, mcp_execution_id).await,
         "jobs" => {
             handle_jobs(
                 db_pool,
                 request,
                 ctx,
-                logger,
                 app_context.clone(),
                 mcp_execution_id,
             )
             .await
         }
-        "operations" => handle_operations(db_pool, request, ctx, logger, mcp_execution_id).await,
+        "operations" => handle_operations(db_pool, request, ctx, mcp_execution_id).await,
         _ => {
-            logger
-                .warn("admin_tools", &format!("Unknown tool: {name}"))
-                .await
-                .ok();
+            tracing::warn!(tool = %name, "Unknown tool");
             Err(McpError::method_not_found::<CallToolRequestMethod>())
         }
     }
