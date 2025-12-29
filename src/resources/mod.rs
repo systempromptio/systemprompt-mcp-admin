@@ -1,6 +1,6 @@
 use anyhow::Result;
 use rmcp::{model::{PaginatedRequestParam, ListResourcesResult, ReadResourceRequestParam, ReadResourceResult}, service::RequestContext, ErrorData as McpError, RoleServer};
-use systemprompt_core_database::DbPool;
+use systemprompt::database::DbPool;
 
 #[derive(Clone)]
 pub struct AdminResources {

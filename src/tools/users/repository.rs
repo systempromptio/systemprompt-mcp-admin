@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sqlx::PgPool;
 use std::sync::Arc;
-use systemprompt_core_database::DbPool;
+use systemprompt::database::DbPool;
 
 use super::models::User;
 

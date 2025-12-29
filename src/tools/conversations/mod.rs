@@ -4,10 +4,10 @@ mod sections;
 
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
-use systemprompt_core_agent::{repository::TaskRepository, Part};
-use systemprompt_core_database::DbPool;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::agent::{repository::task::TaskRepository, Part};
+use systemprompt::database::DbPool;
+use systemprompt::identifiers::{ArtifactId, ContextId, McpExecutionId};
+use systemprompt::models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
 };
 
@@ -132,11 +132,16 @@ pub async fn handle_conversations(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !recent_conversations.is_empty() {
-        dashboard =
-            dashboard.add_section(create_conversations_table_section(&recent_conversations));
+        dashboard = dashboard.add_section(
+            create_conversations_table_section(&recent_conversations)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
     }
 
-    dashboard = dashboard.add_section(create_summary_cards_section(&summary));
+    dashboard = dashboard.add_section(
+        create_summary_cards_section(&summary)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
 
     let conversation_trends = repo
         .get_conversation_trends()
@@ -144,13 +149,16 @@ pub async fn handle_conversations(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !conversation_trends.is_empty() {
-        dashboard = dashboard.add_section(create_conversation_trends_section(&conversation_trends));
+        dashboard = dashboard.add_section(
+            create_conversation_trends_section(&conversation_trends)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
     }
 
     let metadata = ExecutionMetadata::new().tool("conversations");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         dashboard,
         metadata.clone(),
@@ -178,9 +186,10 @@ async fn handle_conversation_details(
     tracing::debug!(context_id = %context_id, "Retrieving messages");
 
     let task_repo = TaskRepository::new(pool.clone());
+    let context_id_obj = ContextId::new(context_id);
 
     let tasks = task_repo
-        .list_tasks_by_context(context_id)
+        .list_tasks_by_context(&context_id_obj)
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
@@ -200,7 +209,7 @@ async fn handle_conversation_details(
                     .join("\n");
 
                 messages.push(json!({
-                    "id": msg.message_id,
+                    "id": msg.id,
                     "role": msg.role,
                     "content": content,
                 }));
@@ -216,9 +225,9 @@ async fn handle_conversation_details(
     tracing::debug!(count = messages.len(), "Messages retrieved");
 
     let metadata = ExecutionMetadata::new().tool("conversations");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         artifact.clone(),
         metadata.clone(),

@@ -4,9 +4,9 @@ mod sections;
 
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
-use systemprompt_core_database::DbPool;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::database::DbPool;
+use systemprompt::identifiers::{ArtifactId, McpExecutionId};
+use systemprompt::models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
 };
 
@@ -76,13 +76,19 @@ pub async fn handle_logs(
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    dashboard = dashboard.add_section(create_stats_section(&stats));
-    dashboard = dashboard.add_section(create_logs_table_section(&logs, page));
+    dashboard = dashboard.add_section(
+        create_stats_section(&stats)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
+    dashboard = dashboard.add_section(
+        create_logs_table_section(&logs, page)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
 
     let metadata = ExecutionMetadata::new().tool("logs");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         dashboard,
         metadata.clone(),

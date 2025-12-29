@@ -1,12 +1,12 @@
 use serde_json::json;
-use systemprompt_models::artifacts::{
+use systemprompt::models::artifacts::{
     Column, ColumnType, DashboardSection, LayoutWidth, SectionLayout, SectionType, TableArtifact,
     TableHints,
 };
 
 use super::models::{ConversationSummary, ConversationTrendRow, RecentConversation};
 
-pub fn create_summary_cards_section(summary: &ConversationSummary) -> DashboardSection {
+pub fn create_summary_cards_section(summary: &ConversationSummary) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Total Conversations",
@@ -40,21 +40,21 @@ pub fn create_summary_cards_section(summary: &ConversationSummary) -> DashboardS
         }),
     ];
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "conversation_summary",
         "Summary Metrics",
         SectionType::MetricsCards,
     )
-    .with_data(json!({ "cards": cards }))
+    .with_data(json!({ "cards": cards }))?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 2,
-    })
+    }))
 }
 
 pub fn create_conversations_table_section(
     conversations: &[RecentConversation],
-) -> DashboardSection {
+) -> Result<DashboardSection, serde_json::Error> {
     let table = TableArtifact::new(vec![
         Column::new("context_id", ColumnType::String).with_header("ID"),
         Column::new("user", ColumnType::String).with_header("User"),
@@ -92,7 +92,7 @@ pub fn create_conversations_table_section(
             ])
             .with_default_sort(
                 "last_updated".to_string(),
-                systemprompt_models::artifacts::types::SortOrder::Desc,
+                systemprompt::models::artifacts::SortOrder::Desc,
             )
             .with_page_size(10)
             .with_row_click_enabled(true),
@@ -103,15 +103,15 @@ pub fn create_conversations_table_section(
         conversations.len()
     );
 
-    DashboardSection::new("recent_conversations", &title, SectionType::Table)
-        .with_data(table.to_response())
+    Ok(DashboardSection::new("recent_conversations", &title, SectionType::Table)
+        .with_data(table.to_response())?
         .with_layout(SectionLayout {
             width: LayoutWidth::Full,
             order: 1,
-        })
+        }))
 }
 
-pub fn create_conversation_trends_section(trends: &[ConversationTrendRow]) -> DashboardSection {
+pub fn create_conversation_trends_section(trends: &[ConversationTrendRow]) -> Result<DashboardSection, serde_json::Error> {
     let row = trends.first();
 
     let cards = if let Some(row) = row {
@@ -149,14 +149,14 @@ pub fn create_conversation_trends_section(trends: &[ConversationTrendRow]) -> Da
         vec![]
     };
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "conversation_tracking",
         "Conversation Tracking (Hourly, Daily, Weekly, Monthly)",
         SectionType::MetricsCards,
     )
-    .with_data(json!({ "cards": cards }))
+    .with_data(json!({ "cards": cards }))?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 3,
-    })
+    }))
 }

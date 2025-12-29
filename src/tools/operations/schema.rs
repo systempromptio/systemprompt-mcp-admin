@@ -1,5 +1,5 @@
 use serde_json::{json, Value as JsonValue};
-use systemprompt_models::artifacts::{DashboardArtifact, ToolResponse};
+use systemprompt::models::artifacts::{DashboardArtifact, ToolResponse};
 
 #[must_use] pub fn operations_input_schema() -> JsonValue {
     json!({

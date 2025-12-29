@@ -1,8 +1,8 @@
 use rmcp::{model::{Tool, CallToolRequestParam, CallToolResult, CallToolRequestMethod, ListToolsResult}, service::RequestContext, ErrorData as McpError, RoleServer};
 use std::sync::Arc;
-use systemprompt_core_database::DbPool;
-use systemprompt_core_system::AppContext;
-use systemprompt_identifiers::McpExecutionId;
+use systemprompt::database::DbPool;
+use systemprompt::system::AppContext;
+use systemprompt::identifiers::McpExecutionId;
 
 pub mod content;
 pub mod conversations;

@@ -5,11 +5,12 @@ mod sections;
 use anyhow::Result;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
-use systemprompt_core_blog::models::{LinkType, UtmParams};
-use systemprompt_core_blog::services::LinkGenerationService;
-use systemprompt_core_database::DbPool;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::content::models::{LinkType, UtmParams};
+use systemprompt::content::services::link::generation::GenerateLinkParams;
+use systemprompt::content::services::LinkGenerationService;
+use systemprompt::database::DbPool;
+use systemprompt::identifiers::{ArtifactId, McpExecutionId};
+use systemprompt::models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
 };
 
@@ -64,7 +65,8 @@ pub async fn handle_content(
 
     let repo = ContentRepository::new(pool.clone())
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-    let link_service = LinkGenerationService::new(pool.clone());
+    let link_service = LinkGenerationService::new(pool)
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     let mut dashboard = DashboardArtifact::new("Content Analytics").with_hints(
         DashboardHints::new()
@@ -79,7 +81,10 @@ pub async fn handle_content(
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    dashboard = dashboard.add_section(create_traffic_summary_cards(&traffic_summary));
+    dashboard = dashboard.add_section(
+        create_traffic_summary_cards(&traffic_summary)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+    );
 
     let daily_views = repo
         .get_daily_views_per_content(days)
@@ -87,7 +92,10 @@ pub async fn handle_content(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !daily_views.is_empty() {
-        dashboard = dashboard.add_section(create_daily_views_chart(&daily_views));
+        dashboard = dashboard.add_section(
+            create_daily_views_chart(&daily_views)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        );
     }
 
     let mut top_content = repo
@@ -98,7 +106,10 @@ pub async fn handle_content(
     populate_trackable_links(&link_service, &mut top_content).await;
 
     if !top_content.is_empty() {
-        dashboard = dashboard.add_section(create_top_content_section(&top_content));
+        dashboard = dashboard.add_section(
+            create_top_content_section(&top_content)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        );
     }
 
     let top_referrers = repo
@@ -107,13 +118,16 @@ pub async fn handle_content(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !top_referrers.is_empty() {
-        dashboard = dashboard.add_section(create_top_referrers_section(&top_referrers));
+        dashboard = dashboard.add_section(
+            create_top_referrers_section(&top_referrers)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        );
     }
 
     let metadata = ExecutionMetadata::new().tool("content");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         dashboard,
         metadata.clone(),
@@ -189,20 +203,20 @@ async fn generate_trackable_link(
         content: Some(item.content_id.clone()),
     };
 
-    let link = link_service
-        .generate_link(
-            &item.preview_url,
-            LinkType::Both,
-            Some("admin_content_preview".to_string()),
-            Some("Admin Content Preview".to_string()),
-            Some(item.content_id.clone()),
-            Some("top_content".to_string()),
-            Some(utm_params),
-            None,
-            Some("preview".to_string()),
-            None,
-        )
-        .await?;
+    let params = GenerateLinkParams {
+        target_url: item.preview_url.clone(),
+        link_type: LinkType::Both,
+        campaign_id: None,
+        campaign_name: Some("Admin Content Preview".to_string()),
+        source_content_id: None,
+        source_page: Some("top_content".to_string()),
+        utm_params: Some(utm_params),
+        link_text: None,
+        link_position: Some("preview".to_string()),
+        expires_at: None,
+    };
+
+    let link = link_service.generate_link(params).await?;
 
     Ok(LinkGenerationService::build_trackable_url(
         &link,

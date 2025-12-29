@@ -1,6 +1,6 @@
 use serde_json::json;
-use systemprompt_core_system::models::analytics::PlatformOverview;
-use systemprompt_models::artifacts::{
+use systemprompt::analytics::PlatformOverview;
+use systemprompt::models::artifacts::{
     Column, ColumnType, DashboardSection, LayoutWidth, SectionLayout, SectionType, TableArtifact,
     TableHints,
 };
@@ -10,7 +10,7 @@ use super::models::{
     ToolUsageRow, TrafficSummary,
 };
 
-pub fn create_realtime_activity_section(overview: &PlatformOverview) -> DashboardSection {
+pub fn create_realtime_activity_section(overview: &PlatformOverview) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Active Users (24h)",
@@ -33,19 +33,19 @@ pub fn create_realtime_activity_section(overview: &PlatformOverview) -> Dashboar
         }),
     ];
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "realtime_activity",
         "Real-time Activity",
         SectionType::MetricsCards,
     )
-    .with_data(json!({ "cards": cards }))
+    .with_data(json!({ "cards": cards }))?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 1,
-    })
+    }))
 }
 
-pub fn create_conversations_overview_section(metrics: &ConversationMetrics) -> DashboardSection {
+pub fn create_conversations_overview_section(metrics: &ConversationMetrics) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Conversations (24h)",
@@ -70,21 +70,21 @@ pub fn create_conversations_overview_section(metrics: &ConversationMetrics) -> D
         }),
     ];
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "conversations_overview",
         "Conversations Overview",
         SectionType::MetricsCards,
     )
-    .with_data(json!({ "cards": cards }))
+    .with_data(json!({ "cards": cards }))?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 2,
-    })
+    }))
 }
 
 pub fn create_recent_conversations_section(
     conversations: &[RecentConversation],
-) -> DashboardSection {
+) -> Result<DashboardSection, serde_json::Error> {
     let table = TableArtifact::new(vec![
         Column::new("context_id", ColumnType::String).with_header("Context ID"),
         Column::new("agent_name", ColumnType::String).with_header("Agent"),
@@ -122,19 +122,19 @@ pub fn create_recent_conversations_section(
             .filterable(),
     );
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "recent_conversations",
         "Recent Conversations (newest first)",
         SectionType::Table,
     )
-    .with_data(table.to_response())
+    .with_data(table.to_response())?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 3,
-    })
+    }))
 }
 
-pub fn create_traffic_summary_section(summary: &TrafficSummary) -> DashboardSection {
+pub fn create_traffic_summary_section(summary: &TrafficSummary) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Total Sessions",
@@ -159,25 +159,25 @@ pub fn create_traffic_summary_section(summary: &TrafficSummary) -> DashboardSect
         }),
     ];
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "traffic_overview",
         "Traffic Overview",
         SectionType::MetricsCards,
     )
-    .with_data(json!({ "cards": cards }))
+    .with_data(json!({ "cards": cards }))?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 4,
-    })
+    }))
 }
 
-pub fn create_daily_trends_section(trends: &[DailyTrend]) -> DashboardSection {
+pub fn create_daily_trends_section(trends: &[DailyTrend]) -> Result<DashboardSection, serde_json::Error> {
     let labels: Vec<String> = trends.iter().map(|t| t.date.clone()).collect();
     let conversations_data: Vec<i64> = trends.iter().map(|t| t.conversations).collect();
     let tool_executions_data: Vec<i64> = trends.iter().map(|t| t.tool_executions).collect();
     let active_users_data: Vec<i64> = trends.iter().map(|t| t.active_users).collect();
 
-    DashboardSection::new("daily_trends", "Daily Trends", SectionType::Chart)
+    Ok(DashboardSection::new("daily_trends", "Daily Trends", SectionType::Chart)
         .with_data(json!({
             "chart_type": "line",
             "labels": labels,
@@ -186,14 +186,14 @@ pub fn create_daily_trends_section(trends: &[DailyTrend]) -> DashboardSection {
                 {"label": "Tool Executions", "data": tool_executions_data},
                 {"label": "Active Users", "data": active_users_data}
             ]
-        }))
+        }))?
         .with_layout(SectionLayout {
             width: LayoutWidth::Full,
             order: 5,
-        })
+        }))
 }
 
-pub fn create_agent_usage_section(agent_data: &[AgentUsageRow]) -> DashboardSection {
+pub fn create_agent_usage_section(agent_data: &[AgentUsageRow]) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<serde_json::Value> = agent_data
         .iter()
         .map(|agent| {
@@ -219,15 +219,15 @@ pub fn create_agent_usage_section(agent_data: &[AgentUsageRow]) -> DashboardSect
             .filterable(),
     );
 
-    DashboardSection::new("agent_usage", "Agent Usage", SectionType::Table)
-        .with_data(table.to_response())
+    Ok(DashboardSection::new("agent_usage", "Agent Usage", SectionType::Table)
+        .with_data(table.to_response())?
         .with_layout(SectionLayout {
             width: LayoutWidth::Half,
             order: 6,
-        })
+        }))
 }
 
-pub fn create_tool_usage_section(tool_data: &[ToolUsageRow]) -> DashboardSection {
+pub fn create_tool_usage_section(tool_data: &[ToolUsageRow]) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<serde_json::Value> = tool_data
         .iter()
         .map(|tool| {
@@ -253,12 +253,12 @@ pub fn create_tool_usage_section(tool_data: &[ToolUsageRow]) -> DashboardSection
             .filterable(),
     );
 
-    DashboardSection::new("tool_usage", "Tool Usage", SectionType::Table)
-        .with_data(table.to_response())
+    Ok(DashboardSection::new("tool_usage", "Tool Usage", SectionType::Table)
+        .with_data(table.to_response())?
         .with_layout(SectionLayout {
             width: LayoutWidth::Half,
             order: 7,
-        })
+        }))
 }
 
 fn calculate_trend(current: i64, previous: i64) -> String {

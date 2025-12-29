@@ -4,10 +4,10 @@ mod sections;
 
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
-use systemprompt_core_database::DbPool;
-use systemprompt_core_system::repository::analytics::CoreStatsRepository;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::database::DbPool;
+use systemprompt::analytics::CoreStatsRepository;
+use systemprompt::identifiers::{ArtifactId, McpExecutionId};
+use systemprompt::models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
 };
 
@@ -57,7 +57,8 @@ pub async fn handle_dashboard(
         _ => 1,
     };
 
-    let stats_repo = CoreStatsRepository::new(pool.clone());
+    let stats_repo = CoreStatsRepository::new(pool)
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
     let dashboard_repo = DashboardRepository::new(pool.clone())
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
@@ -76,14 +77,20 @@ pub async fn handle_dashboard(
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    dashboard = dashboard.add_section(create_realtime_activity_section(&overview));
+    dashboard = dashboard.add_section(
+        create_realtime_activity_section(&overview)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
 
     let conversation_metrics = dashboard_repo
         .get_conversation_metrics()
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    dashboard = dashboard.add_section(create_conversations_overview_section(&conversation_metrics));
+    dashboard = dashboard.add_section(
+        create_conversations_overview_section(&conversation_metrics)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
 
     let recent_conversations = dashboard_repo
         .get_recent_conversations(10)
@@ -91,8 +98,10 @@ pub async fn handle_dashboard(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !recent_conversations.is_empty() {
-        dashboard =
-            dashboard.add_section(create_recent_conversations_section(&recent_conversations));
+        dashboard = dashboard.add_section(
+            create_recent_conversations_section(&recent_conversations)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
     }
 
     let traffic_summary = dashboard_repo
@@ -100,7 +109,10 @@ pub async fn handle_dashboard(
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    dashboard = dashboard.add_section(create_traffic_summary_section(&traffic_summary));
+    dashboard = dashboard.add_section(
+        create_traffic_summary_section(&traffic_summary)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
 
     let trends = dashboard_repo
         .get_conversation_trends(days)
@@ -108,7 +120,10 @@ pub async fn handle_dashboard(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !trends.is_empty() {
-        dashboard = dashboard.add_section(create_daily_trends_section(&trends));
+        dashboard = dashboard.add_section(
+            create_daily_trends_section(&trends)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
     }
 
     let tool_usage = dashboard_repo
@@ -117,17 +132,23 @@ pub async fn handle_dashboard(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !tool_usage.agent_data.is_empty() {
-        dashboard = dashboard.add_section(create_agent_usage_section(&tool_usage.agent_data));
+        dashboard = dashboard.add_section(
+            create_agent_usage_section(&tool_usage.agent_data)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
     }
 
     if !tool_usage.tool_data.is_empty() {
-        dashboard = dashboard.add_section(create_tool_usage_section(&tool_usage.tool_data));
+        dashboard = dashboard.add_section(
+            create_tool_usage_section(&tool_usage.tool_data)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
     }
 
     let metadata = ExecutionMetadata::new().tool("dashboard");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         dashboard,
         metadata.clone(),

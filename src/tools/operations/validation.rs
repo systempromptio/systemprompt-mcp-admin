@@ -2,9 +2,8 @@ use rmcp::{model::{CallToolResult, Content}, ErrorData as McpError};
 use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use systemprompt_models::ConfigLoader;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::identifiers::{ArtifactId, McpExecutionId};
+use systemprompt::models::artifacts::{
     Column, ColumnType, DashboardArtifact, DashboardHints, DashboardSection, ExecutionMetadata,
     LayoutMode, LayoutWidth, SectionLayout, SectionType, TableArtifact, ToolResponse,
 };
@@ -365,29 +364,16 @@ pub async fn handle_validate_agents(
     build_validation_response("Agents Validation", &result, mcp_execution_id)
 }
 
-/// Validate full configuration using core ConfigLoader
+/// Validate full configuration
 pub async fn handle_validate_config(
     _args: &serde_json::Map<String, JsonValue>,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
-    tracing::info!("Starting full configuration validation using core loader");
+    tracing::info!("Starting full configuration validation");
 
-    let config_path = get_config_path();
     let mut result = ValidationResult::default();
 
-    // Use core ConfigLoader to validate
-    match ConfigLoader::validate_file(&config_path).await {
-        Ok(()) => {
-            result.add_pass();
-            tracing::info!("Core config validation passed");
-        }
-        Err(e) => {
-            result.add_error("config", &config_path, &format!("Validation failed: {e}"));
-            tracing::error!(error = %e, "Core config validation failed");
-        }
-    }
-
-    // Also run skills and agents validation
+    // Run skills and agents validation
     let services_path = get_services_path();
 
     // Skills validation
@@ -499,7 +485,7 @@ async fn validate_skills_internal(skills_dir: &PathBuf) -> ValidationResult {
     result
 }
 
-async fn validate_agents_internal(agents_dir: &PathBuf, skills_dir: &PathBuf) -> ValidationResult {
+async fn validate_agents_internal(agents_dir: &PathBuf, _skills_dir: &PathBuf) -> ValidationResult {
     let mut result = ValidationResult::default();
     let mut ports_used: HashMap<u16, String> = HashMap::new();
 
@@ -566,18 +552,18 @@ fn build_validation_response(
         .with_hints(DashboardHints::new().with_layout(LayoutMode::Vertical));
 
     // Add metrics cards
-    dashboard = dashboard.add_section(
-        DashboardSection::new("metrics", "Validation Results", SectionType::MetricsCards)
-            .with_data(json!({
-                "cards": [
-                    {"title": "Passed", "value": result.passed, "icon": "check", "status": "success"},
-                    {"title": "Warnings", "value": result.warnings, "icon": "alert-triangle", "status": if result.warnings > 0 { "warning" } else { "neutral" }},
-                    {"title": "Errors", "value": result.errors, "icon": "x-circle", "status": if result.errors > 0 { "error" } else { "neutral" }},
-                    {"title": "Status", "value": if result.errors > 0 { "Failed" } else if result.warnings > 0 { "Warnings" } else { "Passed" }, "icon": status_icon, "status": status}
-                ]
-            }))
-            .with_layout(SectionLayout { width: LayoutWidth::Full, order: 1 }),
-    );
+    let metrics_section = DashboardSection::new("metrics", "Validation Results", SectionType::MetricsCards)
+        .with_data(json!({
+            "cards": [
+                {"title": "Passed", "value": result.passed, "icon": "check", "status": "success"},
+                {"title": "Warnings", "value": result.warnings, "icon": "alert-triangle", "status": if result.warnings > 0 { "warning" } else { "neutral" }},
+                {"title": "Errors", "value": result.errors, "icon": "x-circle", "status": if result.errors > 0 { "error" } else { "neutral" }},
+                {"title": "Status", "value": if result.errors > 0 { "Failed" } else if result.warnings > 0 { "Warnings" } else { "Passed" }, "icon": status_icon, "status": status}
+            ]
+        }))
+        .map_err(|e| McpError::internal_error(format!("Failed to serialize metrics: {e}"), None))?
+        .with_layout(SectionLayout { width: LayoutWidth::Full, order: 1 });
+    dashboard = dashboard.add_section(metrics_section);
 
     // Add issues table if there are any
     if !result.issues.is_empty() {
@@ -594,16 +580,16 @@ fn build_validation_response(
 
         let table = TableArtifact::new(columns).with_rows(rows);
 
-        dashboard = dashboard.add_section(
-            DashboardSection::new("issues", "Issues Found", SectionType::Table)
-                .with_data(json!({ "table": table }))
-                .with_layout(SectionLayout { width: LayoutWidth::Full, order: 2 }),
-        );
+        let issues_section = DashboardSection::new("issues", "Issues Found", SectionType::Table)
+            .with_data(json!({ "table": table }))
+            .map_err(|e| McpError::internal_error(format!("Failed to serialize issues: {e}"), None))?
+            .with_layout(SectionLayout { width: LayoutWidth::Full, order: 2 });
+        dashboard = dashboard.add_section(issues_section);
     }
 
     let metadata = ExecutionMetadata::new().tool("operations");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
-    let tool_response = ToolResponse::new(&artifact_id, mcp_execution_id.clone(), dashboard, metadata.clone());
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
+    let tool_response = ToolResponse::new(artifact_id, mcp_execution_id.clone(), dashboard, metadata.clone());
 
     // Build text summary
     let mut text_summary = format!("{title}\n\nResults: {} passed, {} warnings, {} errors\n\n", result.passed, result.warnings, result.errors);

@@ -4,9 +4,9 @@ mod sections;
 
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
-use systemprompt_core_database::DbPool;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::database::DbPool;
+use systemprompt::identifiers::{ArtifactId, McpExecutionId};
+use systemprompt::models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
 };
 
@@ -75,7 +75,10 @@ pub async fn handle_traffic(
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    dashboard = dashboard.add_section(create_traffic_summary_section(&traffic_summary));
+    dashboard = dashboard.add_section(
+        create_traffic_summary_section(&traffic_summary)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
 
     let top_referrers = repo
         .get_normalized_referrers(days)
@@ -83,7 +86,10 @@ pub async fn handle_traffic(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     if !top_referrers.is_empty() {
-        dashboard = dashboard.add_section(create_top_referrers_section(&top_referrers));
+        dashboard = dashboard.add_section(
+            create_top_referrers_section(&top_referrers)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        );
     }
 
     let device_breakdown = repo
@@ -106,15 +112,27 @@ pub async fn handle_traffic(
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    dashboard = dashboard.add_section(create_device_breakdown_section(&device_breakdown));
-    dashboard = dashboard.add_section(create_geographic_breakdown_section(&geographic_breakdown));
-    dashboard = dashboard.add_section(create_browser_breakdown_section(&browser_breakdown));
-    dashboard = dashboard.add_section(create_os_breakdown_section(&os_breakdown));
+    dashboard = dashboard.add_section(
+        create_device_breakdown_section(&device_breakdown)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
+    dashboard = dashboard.add_section(
+        create_geographic_breakdown_section(&geographic_breakdown)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
+    dashboard = dashboard.add_section(
+        create_browser_breakdown_section(&browser_breakdown)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
+    dashboard = dashboard.add_section(
+        create_os_breakdown_section(&os_breakdown)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+    );
 
     let metadata = ExecutionMetadata::new().tool("traffic");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         dashboard,
         metadata.clone(),

@@ -8,11 +8,11 @@ use chrono::Utc;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
 use sqlx::types::Uuid;
-use systemprompt_core_blog::repository::ContentRepository;
-use systemprompt_core_database::DbPool;
-use systemprompt_core_files::File;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::content::repository::ContentRepository;
+use systemprompt::database::DbPool;
+use systemprompt::files::repository::FileRepository;
+use systemprompt::identifiers::{ArtifactId, ContentId, McpExecutionId};
+use systemprompt::models::artifacts::{
     Column, ColumnType, DashboardArtifact, DashboardHints, DashboardSection, ExecutionMetadata,
     LayoutMode, LayoutWidth, SectionLayout, SectionType, TableArtifact, ToolResponse,
 };
@@ -56,38 +56,13 @@ async fn handle_list_files(
 
     tracing::debug!(limit = limit, offset = offset, "Listing files");
 
-    let pg_pool = pool
-        .pool_arc()
+    let file_repo = FileRepository::new(pool)
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    let files: Vec<File> = sqlx::query_as!(
-        File,
-        r#"
-        SELECT
-            id,
-            file_path,
-            public_url,
-            mime_type,
-            file_size_bytes,
-            ai_content,
-            metadata,
-            user_id,
-            session_id,
-            trace_id,
-            created_at,
-            updated_at,
-            deleted_at
-        FROM files
-        WHERE deleted_at IS NULL
-        ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
-        "#,
-        limit,
-        offset
-    )
-    .fetch_all(&*pg_pool)
-    .await
-    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+    let files = file_repo
+        .list_all(limit, offset)
+        .await
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     tracing::debug!(count = files.len(), "Files listed");
 
@@ -97,10 +72,10 @@ async fn handle_list_files(
             json!({
                 "id": f.id.to_string(),
                 "thumbnail": f.public_url,
-                "file_path": f.file_path,
+                "file_path": f.path,
                 "public_url": f.public_url,
                 "mime_type": f.mime_type,
-                "file_size_bytes": f.file_size_bytes,
+                "file_size_bytes": f.size_bytes,
                 "ai_content": f.ai_content,
                 "created_at": f.created_at.to_rfc3339()
             })
@@ -119,12 +94,12 @@ async fn handle_list_files(
     ];
 
     let metadata = ExecutionMetadata::new().tool("operations");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let artifact = TableArtifact::new(columns)
         .with_rows(items.clone())
         .with_metadata(metadata.clone());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         artifact,
         metadata.clone(),
@@ -183,9 +158,11 @@ async fn handle_delete_content(
 
     tracing::debug!(uuid = %uuid_str, "Deleting content");
 
-    let content_repo = ContentRepository::new(pool.clone());
+    let content_repo = ContentRepository::new(pool)
+        .map_err(|e| McpError::internal_error(format!("Failed to create content repo: {e}"), None))?;
+    let content_id = ContentId::new(uuid_str);
     content_repo
-        .delete(uuid_str)
+        .delete(&content_id)
         .await
         .map_err(|e| McpError::internal_error(format!("Failed to delete content: {e}"), None))?;
 
@@ -199,28 +176,29 @@ fn build_delete_response(
     uuid_str: &str,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
+    let section = DashboardSection::new("status", "Status", SectionType::MetricsCards)
+        .with_data(json!({
+            "cards": [{
+                "title": title,
+                "value": &uuid_str[..8.min(uuid_str.len())],
+                "icon": "trash-2",
+                "status": "success"
+            }]
+        }))
+        .map_err(|e| McpError::internal_error(format!("Failed to serialize section: {e}"), None))?
+        .with_layout(SectionLayout {
+            width: LayoutWidth::Full,
+            order: 1,
+        });
+
     let dashboard = DashboardArtifact::new(title)
         .with_hints(DashboardHints::new().with_layout(LayoutMode::Vertical))
-        .add_section(
-            DashboardSection::new("status", "Status", SectionType::MetricsCards)
-                .with_data(json!({
-                    "cards": [{
-                        "title": title,
-                        "value": &uuid_str[..8.min(uuid_str.len())],
-                        "icon": "trash-2",
-                        "status": "success"
-                    }]
-                }))
-                .with_layout(SectionLayout {
-                    width: LayoutWidth::Full,
-                    order: 1,
-                }),
-        );
+        .add_section(section);
 
     let metadata = ExecutionMetadata::new().tool("operations");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         dashboard,
         metadata.clone(),

@@ -1,5 +1,5 @@
 use serde_json::{json, Value as JsonValue};
-use systemprompt_models::artifacts::{
+use systemprompt::models::artifacts::{
     Column, ColumnType, DashboardSection, LayoutWidth, SectionLayout, SectionType, TableArtifact,
     TableHints,
 };
@@ -9,7 +9,7 @@ use super::models::{
     TrafficSummary,
 };
 
-pub fn create_traffic_summary_section(summary: &TrafficSummary) -> DashboardSection {
+pub fn create_traffic_summary_section(summary: &TrafficSummary) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Total Sessions",
@@ -49,19 +49,19 @@ pub fn create_traffic_summary_section(summary: &TrafficSummary) -> DashboardSect
         }),
     ];
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "traffic_summary",
         "Traffic Summary",
         SectionType::MetricsCards,
     )
-    .with_data(json!({ "cards": cards }))
+    .with_data(json!({ "cards": cards }))?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 1,
-    })
+    }))
 }
 
-pub fn create_device_breakdown_section(devices: &[DeviceBreakdownWithTrends]) -> DashboardSection {
+pub fn create_device_breakdown_section(devices: &[DeviceBreakdownWithTrends]) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = devices
         .iter()
         .map(|device| {
@@ -96,15 +96,15 @@ pub fn create_device_breakdown_section(devices: &[DeviceBreakdownWithTrends]) ->
             .filterable(),
     );
 
-    DashboardSection::new("device_breakdown", "Device Breakdown", SectionType::Table)
-        .with_data(table.to_response())
+    Ok(DashboardSection::new("device_breakdown", "Device Breakdown", SectionType::Table)
+        .with_data(table.to_response())?
         .with_layout(SectionLayout {
             width: LayoutWidth::Full,
             order: 2,
-        })
+        }))
 }
 
-pub fn create_geographic_breakdown_section(countries: &[GeographicBreakdown]) -> DashboardSection {
+pub fn create_geographic_breakdown_section(countries: &[GeographicBreakdown]) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = countries
         .iter()
         .map(|country| {
@@ -139,19 +139,19 @@ pub fn create_geographic_breakdown_section(countries: &[GeographicBreakdown]) ->
             .filterable(),
     );
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "geographic_breakdown",
         "Geographic Breakdown",
         SectionType::Table,
     )
-    .with_data(table.to_response())
+    .with_data(table.to_response())?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 3,
-    })
+    }))
 }
 
-pub fn create_browser_breakdown_section(browsers: &[BrowserBreakdown]) -> DashboardSection {
+pub fn create_browser_breakdown_section(browsers: &[BrowserBreakdown]) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = browsers
         .iter()
         .map(|browser| {
@@ -186,15 +186,15 @@ pub fn create_browser_breakdown_section(browsers: &[BrowserBreakdown]) -> Dashbo
             .filterable(),
     );
 
-    DashboardSection::new("browser_breakdown", "Browser Breakdown", SectionType::Table)
-        .with_data(table.to_response())
+    Ok(DashboardSection::new("browser_breakdown", "Browser Breakdown", SectionType::Table)
+        .with_data(table.to_response())?
         .with_layout(SectionLayout {
             width: LayoutWidth::Full,
             order: 4,
-        })
+        }))
 }
 
-pub fn create_os_breakdown_section(os_list: &[OsBreakdown]) -> DashboardSection {
+pub fn create_os_breakdown_section(os_list: &[OsBreakdown]) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = os_list
         .iter()
         .map(|os| {
@@ -229,19 +229,19 @@ pub fn create_os_breakdown_section(os_list: &[OsBreakdown]) -> DashboardSection 
             .filterable(),
     );
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "os_breakdown",
         "Operating System Breakdown",
         SectionType::Table,
     )
-    .with_data(table.to_response())
+    .with_data(table.to_response())?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 5,
-    })
+    }))
 }
 
-pub fn create_top_referrers_section(referrers: &[Referrer]) -> DashboardSection {
+pub fn create_top_referrers_section(referrers: &[Referrer]) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = referrers
         .iter()
         .map(|item| {
@@ -269,10 +269,10 @@ pub fn create_top_referrers_section(referrers: &[Referrer]) -> DashboardSection 
             .filterable(),
     );
 
-    DashboardSection::new("top_referrers", "TOP REFERRER URLS", SectionType::Table)
-        .with_data(table.to_response())
+    Ok(DashboardSection::new("top_referrers", "TOP REFERRER URLS", SectionType::Table)
+        .with_data(table.to_response())?
         .with_layout(SectionLayout {
             width: LayoutWidth::Full,
             order: 6,
-        })
+        }))
 }

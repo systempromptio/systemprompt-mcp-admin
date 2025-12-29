@@ -4,7 +4,7 @@ pub mod system_health;
 
 use anyhow::Result;
 use rmcp::{model::{PaginatedRequestParam, ListPromptsResult, Prompt, PromptArgument, GetPromptRequestParam, GetPromptResult, PromptMessage, PromptMessageRole, PromptMessageContent}, service::RequestContext, ErrorData as McpError, RoleServer};
-use systemprompt_core_database::DbPool;
+use systemprompt::database::DbPool;
 
 pub use admin_analysis::build_admin_analysis_prompt;
 pub use agent_management::{

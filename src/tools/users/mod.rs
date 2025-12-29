@@ -8,9 +8,9 @@ use anyhow::Result;
 use repository::UsersRepository;
 use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
 use serde_json::{json, Value as JsonValue};
-use systemprompt_core_database::DbPool;
-use systemprompt_identifiers::McpExecutionId;
-use systemprompt_models::artifacts::{
+use systemprompt::database::DbPool;
+use systemprompt::identifiers::{ArtifactId, McpExecutionId};
+use systemprompt::models::artifacts::{
     Column, ColumnType, ExecutionMetadata, TableArtifact, ToolResponse,
 };
 
@@ -49,12 +49,12 @@ pub async fn handle_users(
     ];
 
     let metadata = ExecutionMetadata::new().tool("users");
-    let artifact_id = uuid::Uuid::new_v4().to_string();
+    let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
     let artifact = TableArtifact::new(columns)
         .with_rows(items.clone())
         .with_metadata(metadata.clone());
     let tool_response = ToolResponse::new(
-        &artifact_id,
+        artifact_id,
         mcp_execution_id.clone(),
         artifact,
         metadata.clone(),

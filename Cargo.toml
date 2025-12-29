@@ -40,19 +40,8 @@ sha2 = "0.10"
 # Logging/tracing
 tracing = "0.1"
 
-# Core modules from systemprompt-core repo
-systemprompt-core-system = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-mcp = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-users = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-database = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-agent = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-logging = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-blog = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-files = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-core-scheduler = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-models = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-identifiers = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
-systemprompt-traits = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main" }
+# Core facade
+systemprompt = { git = "https://github.com/systempromptio/systemprompt-core", branch = "main", features = ["full"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

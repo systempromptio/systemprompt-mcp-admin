@@ -2,7 +2,7 @@ use anyhow::Result;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
-use systemprompt_core_database::DbPool;
+use systemprompt::database::DbPool;
 
 use super::models::{
     parse_flexible_timestamp, AgentToolUsage, AgentUsageRow, ConversationMetrics, DailyTrend,

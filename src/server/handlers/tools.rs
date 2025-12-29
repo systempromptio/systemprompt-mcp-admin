@@ -1,11 +1,11 @@
 use anyhow::Result;
 use chrono::Utc;
 use rmcp::{model::{PaginatedRequestParam, ListToolsResult, CallToolRequestParam, CallToolResult}, service::RequestContext, ErrorData as McpError, RoleServer};
-use systemprompt_core_agent::services::mcp::task_helper;
-use systemprompt_core_mcp::middleware::enforce_rbac_from_registry;
-use systemprompt_core_mcp::models::{ToolExecutionRequest, ToolExecutionResult};
-use systemprompt_core_mcp::repository::ToolUsageRepository;
-use systemprompt_models::execution::CallSource;
+use systemprompt::agent::services::mcp::task_helper;
+use systemprompt::mcp::middleware::enforce_rbac_from_registry;
+use systemprompt::mcp::models::{ToolExecutionRequest, ToolExecutionResult};
+use systemprompt::mcp::repository::ToolUsageRepository;
+use systemprompt::models::execution::CallSource;
 
 use crate::server::AdminServer;
 
@@ -27,11 +27,11 @@ impl AdminServer {
         let tool_name = request.name.to_string();
 
         let auth_result =
-            enforce_rbac_from_registry(&ctx, self.service_id.as_str(), None)
+            enforce_rbac_from_registry(&ctx, self.service_id.as_str())
                 .await?;
         let authenticated_ctx = auth_result.expect_authenticated(
             "BUG: systemprompt-admin requires OAuth but auth was not enforced",
-        );
+        )?;
 
         let mut request_context = authenticated_ctx.context.clone();
         let jwt_token = authenticated_ctx.token();
@@ -48,12 +48,13 @@ impl AdminServer {
         let task_id = task_result.task_id.clone();
         let is_task_owner = task_result.is_owner;
 
-        let tool_repo = ToolUsageRepository::new(self.db_pool.clone());
+        let tool_repo = ToolUsageRepository::new(&self.db_pool)
+            .map_err(|e| McpError::internal_error(format!("Failed to create tool repo: {e}"), None))?;
         let arguments = request.arguments.clone().unwrap_or_default();
 
         let exec_request = ToolExecutionRequest {
             tool_name: tool_name.clone(),
-            mcp_server_name: self.service_id.to_string(),
+            server_name: self.service_id.to_string(),
             input: serde_json::Value::Object(arguments.clone()),
             started_at: Utc::now(),
             context: request_context.clone(),
@@ -134,7 +135,7 @@ impl AdminServer {
                             {
                                 Ok(()) => {
                                     tracing::info!(
-                                        artifact_id = %artifact.artifact_id,
+                                        artifact_id = %artifact.id,
                                         artifact_type = %artifact.metadata.artifact_type,
                                         task_id = %task_id.as_str(),
                                         context_id = %request_context.execution.context_id.as_str(),

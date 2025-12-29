@@ -1,4 +1,4 @@
-use systemprompt_core_database::DbPool;
+use systemprompt::database::DbPool;
 
 pub struct AdminRepository {
     _db_pool: DbPool,

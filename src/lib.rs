@@ -8,8 +8,8 @@ pub mod tools;
 
 pub use server::AdminServer;
 
-pub async fn create_database_connection() -> Result<systemprompt_core_database::DbPool> {
-    use systemprompt_core_system::AppContext;
+pub async fn create_database_connection() -> Result<systemprompt::database::DbPool> {
+    use systemprompt::system::AppContext;
 
     let ctx = AppContext::new().await?;
     Ok(ctx.db_pool().clone())

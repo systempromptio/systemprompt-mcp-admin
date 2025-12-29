@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use systemprompt_core_agent::services::mcp::ToolResultHandler;
-use systemprompt_core_agent::services::ArtifactPublishingService;
-use systemprompt_core_database::DbPool;
-use systemprompt_core_system::AppContext;
-use systemprompt_identifiers::McpServerId;
+use systemprompt::agent::services::mcp::ToolResultHandler;
+use systemprompt::agent::services::ArtifactPublishingService;
+use systemprompt::database::DbPool;
+use systemprompt::system::AppContext;
+use systemprompt::identifiers::McpServerId;
 
 use crate::prompts::AdminPrompts;
 use crate::resources::AdminResources;

@@ -1,12 +1,12 @@
 use serde_json::json;
-use systemprompt_models::artifacts::{
+use systemprompt::models::artifacts::{
     Column, ColumnType, DashboardSection, LayoutWidth, SectionLayout, SectionType, TableArtifact,
     TableHints,
 };
 
 use super::models::{LogEntry, LogStats};
 
-pub fn create_stats_section(stats: &LogStats) -> DashboardSection {
+pub fn create_stats_section(stats: &LogStats) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Total Logs",
@@ -38,15 +38,15 @@ pub fn create_stats_section(stats: &LogStats) -> DashboardSection {
         }),
     ];
 
-    DashboardSection::new("log_stats", "Log Statistics", SectionType::MetricsCards)
-        .with_data(json!({ "cards": cards }))
+    Ok(DashboardSection::new("log_stats", "Log Statistics", SectionType::MetricsCards)
+        .with_data(json!({ "cards": cards }))?
         .with_layout(SectionLayout {
             width: LayoutWidth::Full,
             order: 1,
-        })
+        }))
 }
 
-pub fn create_logs_table_section(logs: &[LogEntry], page: i32) -> DashboardSection {
+pub fn create_logs_table_section(logs: &[LogEntry], page: i32) -> Result<DashboardSection, serde_json::Error> {
     let table = TableArtifact::new(vec![
         Column::new("timestamp", ColumnType::String).with_header("Time"),
         Column::new("level", ColumnType::String).with_header("Level"),
@@ -80,16 +80,16 @@ pub fn create_logs_table_section(logs: &[LogEntry], page: i32) -> DashboardSecti
             .filterable(),
     );
 
-    DashboardSection::new(
+    Ok(DashboardSection::new(
         "recent_logs",
         format!("Recent Logs (Page {})", page + 1),
         SectionType::Table,
     )
-    .with_data(table.to_response())
+    .with_data(table.to_response())?
     .with_layout(SectionLayout {
         width: LayoutWidth::Full,
         order: 2,
-    })
+    }))
 }
 
 fn format_timestamp_as_readable(timestamp: &str) -> String {
