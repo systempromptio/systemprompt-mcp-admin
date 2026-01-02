@@ -3,7 +3,14 @@ pub mod agent_management;
 pub mod system_health;
 
 use anyhow::Result;
-use rmcp::{model::{PaginatedRequestParam, ListPromptsResult, Prompt, PromptArgument, GetPromptRequestParam, GetPromptResult, PromptMessage, PromptMessageRole, PromptMessageContent}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{
+        GetPromptRequestParam, GetPromptResult, ListPromptsResult, PaginatedRequestParam, Prompt,
+        PromptArgument, PromptMessage, PromptMessageContent, PromptMessageRole,
+    },
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use systemprompt::database::DbPool;
 
 pub use admin_analysis::build_admin_analysis_prompt;
@@ -19,7 +26,8 @@ pub struct AdminPrompts {
 }
 
 impl AdminPrompts {
-    #[must_use] pub fn new(db_pool: DbPool, server_name: String) -> Self {
+    #[must_use]
+    pub fn new(db_pool: DbPool, server_name: String) -> Self {
         Self {
             _db_pool: db_pool,
             _server_name: server_name,

@@ -1,6 +1,10 @@
 use anyhow::Result;
 use chrono::Utc;
-use rmcp::{model::{PaginatedRequestParam, ListToolsResult, CallToolRequestParam, CallToolResult}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, ListToolsResult, PaginatedRequestParam},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use systemprompt::agent::services::mcp::task_helper;
 use systemprompt::mcp::middleware::enforce_rbac_from_registry;
 use systemprompt::mcp::models::{ToolExecutionRequest, ToolExecutionResult};
@@ -26,9 +30,7 @@ impl AdminServer {
         let start_time = std::time::Instant::now();
         let tool_name = request.name.to_string();
 
-        let auth_result =
-            enforce_rbac_from_registry(&ctx, self.service_id.as_str())
-                .await?;
+        let auth_result = enforce_rbac_from_registry(&ctx, self.service_id.as_str()).await?;
         let authenticated_ctx = auth_result.expect_authenticated(
             "BUG: systemprompt-admin requires OAuth but auth was not enforced",
         )?;
@@ -48,8 +50,9 @@ impl AdminServer {
         let task_id = task_result.task_id.clone();
         let is_task_owner = task_result.is_owner;
 
-        let tool_repo = ToolUsageRepository::new(&self.db_pool)
-            .map_err(|e| McpError::internal_error(format!("Failed to create tool repo: {e}"), None))?;
+        let tool_repo = ToolUsageRepository::new(&self.db_pool).map_err(|e| {
+            McpError::internal_error(format!("Failed to create tool repo: {e}"), None)
+        })?;
         let arguments = request.arguments.clone().unwrap_or_default();
 
         let exec_request = ToolExecutionRequest {
@@ -161,12 +164,9 @@ impl AdminServer {
             let jwt_token_clone = jwt_token.to_string();
 
             tokio::spawn(async move {
-                if let Err(e) = task_helper::complete_task(
-                    &server.db_pool,
-                    &task_id_clone,
-                    &jwt_token_clone,
-                )
-                .await
+                if let Err(e) =
+                    task_helper::complete_task(&server.db_pool, &task_id_clone, &jwt_token_clone)
+                        .await
                 {
                     tracing::error!(error = ?e, "Failed to complete task");
                 }

@@ -1,7 +1,8 @@
 use serde_json::{json, Value as JsonValue};
 use systemprompt::models::artifacts::{DashboardArtifact, ToolResponse};
 
-#[must_use] pub fn operations_input_schema() -> JsonValue {
+#[must_use]
+pub fn operations_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "required": ["action"],
@@ -29,6 +30,7 @@ use systemprompt::models::artifacts::{DashboardArtifact, ToolResponse};
     })
 }
 
-#[must_use] pub fn operations_output_schema() -> JsonValue {
+#[must_use]
+pub fn operations_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }

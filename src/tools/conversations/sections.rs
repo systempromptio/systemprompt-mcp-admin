@@ -6,7 +6,9 @@ use systemprompt::models::artifacts::{
 
 use super::models::{ConversationSummary, ConversationTrendRow, RecentConversation};
 
-pub fn create_summary_cards_section(summary: &ConversationSummary) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_summary_cards_section(
+    summary: &ConversationSummary,
+) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Total Conversations",
@@ -103,15 +105,19 @@ pub fn create_conversations_table_section(
         conversations.len()
     );
 
-    Ok(DashboardSection::new("recent_conversations", &title, SectionType::Table)
-        .with_data(table.to_response())?
-        .with_layout(SectionLayout {
-            width: LayoutWidth::Full,
-            order: 1,
-        }))
+    Ok(
+        DashboardSection::new("recent_conversations", &title, SectionType::Table)
+            .with_data(table.to_response())?
+            .with_layout(SectionLayout {
+                width: LayoutWidth::Full,
+                order: 1,
+            }),
+    )
 }
 
-pub fn create_conversation_trends_section(trends: &[ConversationTrendRow]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_conversation_trends_section(
+    trends: &[ConversationTrendRow],
+) -> Result<DashboardSection, serde_json::Error> {
     let row = trends.first();
 
     let cards = if let Some(row) = row {

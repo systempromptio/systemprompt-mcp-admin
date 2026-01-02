@@ -1,4 +1,5 @@
-#[must_use] pub fn build_system_health_prompt(include_recommendations: bool) -> String {
+#[must_use]
+pub fn build_system_health_prompt(include_recommendations: bool) -> String {
     format!(
         "Perform a comprehensive SystemPrompt health check using all available admin tools.\n\n\
         Execute the following diagnostic sequence:\n\n\

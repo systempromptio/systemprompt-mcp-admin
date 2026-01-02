@@ -1,8 +1,12 @@
-use rmcp::{model::{Tool, CallToolRequestParam, CallToolResult, CallToolRequestMethod, ListToolsResult}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestMethod, CallToolRequestParam, CallToolResult, ListToolsResult, Tool},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use std::sync::Arc;
 use systemprompt::database::DbPool;
-use systemprompt::system::AppContext;
 use systemprompt::identifiers::McpExecutionId;
+use systemprompt::system::AppContext;
 
 pub mod content;
 pub mod conversations;
@@ -24,7 +28,8 @@ pub use operations::{handle_operations, operations_input_schema, operations_outp
 pub use traffic::{handle_traffic, traffic_input_schema, traffic_output_schema};
 pub use users::{handle_users, users_input_schema, users_output_schema};
 
-#[must_use] pub fn register_tools() -> Vec<Tool> {
+#[must_use]
+pub fn register_tools() -> Vec<Tool> {
     vec![
         create_tool("dashboard", "System Dashboard",
             "Comprehensive unified dashboard with real-time activity, conversations (24h/7d/30d with trends), recent conversations table, traffic overview, daily trend charts, and agent/tool usage metrics.",
@@ -66,20 +71,9 @@ pub async fn handle_tool_call(
         "user" => handle_users(db_pool, request, ctx, mcp_execution_id).await,
         "traffic" => handle_traffic(db_pool, request, ctx, mcp_execution_id).await,
         "content" => handle_content(db_pool, request, ctx, mcp_execution_id).await,
-        "conversations" => {
-            handle_conversations(db_pool, request, ctx, mcp_execution_id).await
-        }
+        "conversations" => handle_conversations(db_pool, request, ctx, mcp_execution_id).await,
         "logs" => handle_logs(db_pool, request, ctx, mcp_execution_id).await,
-        "jobs" => {
-            handle_jobs(
-                db_pool,
-                request,
-                ctx,
-                app_context.clone(),
-                mcp_execution_id,
-            )
-            .await
-        }
+        "jobs" => handle_jobs(db_pool, request, ctx, app_context.clone(), mcp_execution_id).await,
         "operations" => handle_operations(db_pool, request, ctx, mcp_execution_id).await,
         _ => {
             tracing::warn!(tool = %name, "Unknown tool");

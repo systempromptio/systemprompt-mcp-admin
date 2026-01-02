@@ -1,4 +1,7 @@
-use rmcp::{model::{CallToolResult, Content}, ErrorData as McpError};
+use rmcp::{
+    model::{CallToolResult, Content},
+    ErrorData as McpError,
+};
 use serde_json::{json, Value as JsonValue};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -58,11 +61,6 @@ fn get_services_path() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("/var/www/html/systemprompt-template/services"))
 }
 
-fn get_config_path() -> String {
-    std::env::var("SYSTEMPROMPT_CONFIG_PATH")
-        .unwrap_or_else(|_| "/var/www/html/systemprompt-template/services/config/config.yml".to_string())
-}
-
 /// Validate skills configuration
 pub async fn handle_validate_skills(
     _args: &serde_json::Map<String, JsonValue>,
@@ -84,7 +82,11 @@ pub async fn handle_validate_skills(
     // Check master config exists
     let master_config_path = skills_dir.join("config.yml");
     if !master_config_path.exists() {
-        result.add_error("structure", "services/skills/config.yml", "Master skills config not found");
+        result.add_error(
+            "structure",
+            "services/skills/config.yml",
+            "Master skills config not found",
+        );
         return build_validation_response("Skills Validation", &result, mcp_execution_id);
     }
 
@@ -92,7 +94,11 @@ pub async fn handle_validate_skills(
     let master_content = match std::fs::read_to_string(&master_config_path) {
         Ok(c) => c,
         Err(e) => {
-            result.add_error("read", "services/skills/config.yml", &format!("Failed to read: {e}"));
+            result.add_error(
+                "read",
+                "services/skills/config.yml",
+                &format!("Failed to read: {e}"),
+            );
             return build_validation_response("Skills Validation", &result, mcp_execution_id);
         }
     };
@@ -106,7 +112,11 @@ pub async fn handle_validate_skills(
     let master: SkillsMaster = match serde_yaml::from_str(&master_content) {
         Ok(c) => c,
         Err(e) => {
-            result.add_error("parse", "services/skills/config.yml", &format!("Invalid YAML: {e}"));
+            result.add_error(
+                "parse",
+                "services/skills/config.yml",
+                &format!("Invalid YAML: {e}"),
+            );
             return build_validation_response("Skills Validation", &result, mcp_execution_id);
         }
     };
@@ -160,7 +170,11 @@ pub async fn handle_validate_skills(
 
         // Check duplicate IDs
         if skill_ids.contains(&skill.id) {
-            result.add_error("duplicate", &relative_path, &format!("Duplicate skill ID: {}", skill.id));
+            result.add_error(
+                "duplicate",
+                &relative_path,
+                &format!("Duplicate skill ID: {}", skill.id),
+            );
         } else {
             skill_ids.insert(skill.id.clone());
             result.add_pass();
@@ -168,14 +182,22 @@ pub async fn handle_validate_skills(
 
         // Check ID format
         if skill.id.contains('-') || skill.id.contains(' ') {
-            result.add_warning("naming", &relative_path, &format!("Skill ID '{}' should be snake_case", skill.id));
+            result.add_warning(
+                "naming",
+                &relative_path,
+                &format!("Skill ID '{}' should be snake_case", skill.id),
+            );
         }
 
         // Check index file exists
         let index_file = skill.file.as_deref().unwrap_or("index.md");
         let index_path = skill_dir.join(index_file);
         if !index_path.exists() {
-            result.add_error("missing_file", &relative_path, &format!("Skill file '{}' not found", index_file));
+            result.add_error(
+                "missing_file",
+                &relative_path,
+                &format!("Skill file '{}' not found", index_file),
+            );
         } else {
             result.add_pass();
         }
@@ -183,7 +205,11 @@ pub async fn handle_validate_skills(
         // Check assigned agents exist
         for agent in &skill.assigned_agents {
             if !known_agents.contains(agent) {
-                result.add_warning("reference", &relative_path, &format!("Assigned agent '{}' not found", agent));
+                result.add_warning(
+                    "reference",
+                    &relative_path,
+                    &format!("Assigned agent '{}' not found", agent),
+                );
             }
         }
 
@@ -193,7 +219,8 @@ pub async fn handle_validate_skills(
         }
 
         // Check has description
-        if skill.description.is_none() || skill.description.as_ref().map_or(true, |d| d.is_empty()) {
+        if skill.description.is_none() || skill.description.as_ref().map_or(true, |d| d.is_empty())
+        {
             result.add_warning("metadata", &relative_path, "Skill has no description");
         }
     }
@@ -235,14 +262,21 @@ pub async fn handle_validate_agents(
     let entries = match std::fs::read_dir(&agents_dir) {
         Ok(e) => e,
         Err(e) => {
-            result.add_error("read", "services/agents", &format!("Failed to read directory: {e}"));
+            result.add_error(
+                "read",
+                "services/agents",
+                &format!("Failed to read directory: {e}"),
+            );
             return build_validation_response("Agents Validation", &result, mcp_execution_id);
         }
     };
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.extension().map_or(false, |e| e == "yml" || e == "yaml") {
+        if !path
+            .extension()
+            .map_or(false, |e| e == "yml" || e == "yaml")
+        {
             continue;
         }
 
@@ -302,12 +336,20 @@ pub async fn handle_validate_agents(
         for (key, agent) in &agent_file.agents {
             // Check name matches key
             if key != &agent.name {
-                result.add_warning("consistency", &relative_path, &format!("Agent key '{}' doesn't match name '{}'", key, agent.name));
+                result.add_warning(
+                    "consistency",
+                    &relative_path,
+                    &format!("Agent key '{}' doesn't match name '{}'", key, agent.name),
+                );
             }
 
             // Check duplicate names
             if agent_names.contains(&agent.name) {
-                result.add_error("duplicate", &relative_path, &format!("Duplicate agent name: {}", agent.name));
+                result.add_error(
+                    "duplicate",
+                    &relative_path,
+                    &format!("Duplicate agent name: {}", agent.name),
+                );
             } else {
                 agent_names.insert(agent.name.clone());
                 result.add_pass();
@@ -315,7 +357,11 @@ pub async fn handle_validate_agents(
 
             // Check port conflicts
             if let Some(existing) = agent_ports.get(&agent.port) {
-                result.add_error("port_conflict", &relative_path, &format!("Port {} already used by agent '{}'", agent.port, existing));
+                result.add_error(
+                    "port_conflict",
+                    &relative_path,
+                    &format!("Port {} already used by agent '{}'", agent.port, existing),
+                );
             } else {
                 agent_ports.insert(agent.port, agent.name.clone());
                 result.add_pass();
@@ -323,33 +369,68 @@ pub async fn handle_validate_agents(
 
             // Check port range
             if agent.port < 9000 || agent.port > 9999 {
-                result.add_warning("port_range", &relative_path, &format!("Agent port {} outside recommended range 9000-9999", agent.port));
+                result.add_warning(
+                    "port_range",
+                    &relative_path,
+                    &format!(
+                        "Agent port {} outside recommended range 9000-9999",
+                        agent.port
+                    ),
+                );
             }
 
             // Check system prompt
             if let Some(metadata) = &agent.metadata {
-                if metadata.system_prompt.is_none() || metadata.system_prompt.as_ref().map_or(true, |p| p.trim().is_empty()) {
-                    result.add_warning("config", &relative_path, &format!("Agent '{}' has no system prompt", agent.name));
+                if metadata.system_prompt.is_none()
+                    || metadata
+                        .system_prompt
+                        .as_ref()
+                        .map_or(true, |p| p.trim().is_empty())
+                {
+                    result.add_warning(
+                        "config",
+                        &relative_path,
+                        &format!("Agent '{}' has no system prompt", agent.name),
+                    );
                 } else {
                     result.add_pass();
                 }
             } else {
-                result.add_warning("config", &relative_path, &format!("Agent '{}' has no metadata section", agent.name));
+                result.add_warning(
+                    "config",
+                    &relative_path,
+                    &format!("Agent '{}' has no metadata section", agent.name),
+                );
             }
 
             // Check card and skills
             if let Some(card) = &agent.card {
                 for skill_ref in &card.skills {
                     if !known_skills.contains(&skill_ref.id) {
-                        result.add_warning("reference", &relative_path, &format!("Agent '{}' references unknown skill '{}'", agent.name, skill_ref.id));
+                        result.add_warning(
+                            "reference",
+                            &relative_path,
+                            &format!(
+                                "Agent '{}' references unknown skill '{}'",
+                                agent.name, skill_ref.id
+                            ),
+                        );
                     }
                 }
 
                 if card.security.is_empty() {
-                    result.add_warning("security", &relative_path, &format!("Agent '{}' has no security configuration", agent.name));
+                    result.add_warning(
+                        "security",
+                        &relative_path,
+                        &format!("Agent '{}' has no security configuration", agent.name),
+                    );
                 }
             } else {
-                result.add_warning("config", &relative_path, &format!("Agent '{}' has no card configuration", agent.name));
+                result.add_warning(
+                    "config",
+                    &relative_path,
+                    &format!("Agent '{}' has no card configuration", agent.name),
+                );
             }
         }
     }
@@ -413,7 +494,10 @@ fn collect_agent_names(agents_dir: &PathBuf) -> HashSet<String> {
     if let Ok(entries) = std::fs::read_dir(agents_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "yml" || e == "yaml") {
+            if path
+                .extension()
+                .map_or(false, |e| e == "yml" || e == "yaml")
+            {
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     #[derive(serde::Deserialize)]
                     struct AgentFile {
@@ -458,7 +542,11 @@ async fn validate_skills_internal(skills_dir: &PathBuf) -> ValidationResult {
 
     let master_config_path = skills_dir.join("config.yml");
     if !master_config_path.exists() {
-        result.add_error("structure", "services/skills/config.yml", "Master config not found");
+        result.add_error(
+            "structure",
+            "services/skills/config.yml",
+            "Master config not found",
+        );
         return result;
     }
 
@@ -492,7 +580,10 @@ async fn validate_agents_internal(agents_dir: &PathBuf, _skills_dir: &PathBuf) -
     if let Ok(entries) = std::fs::read_dir(agents_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "yml" || e == "yaml") {
+            if path
+                .extension()
+                .map_or(false, |e| e == "yml" || e == "yaml")
+            {
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     #[derive(serde::Deserialize)]
                     struct AgentFile {
@@ -509,14 +600,22 @@ async fn validate_agents_internal(agents_dir: &PathBuf, _skills_dir: &PathBuf) -
                             result.add_pass();
                             for (_, agent) in &agent_file.agents {
                                 if let Some(existing) = ports_used.get(&agent.port) {
-                                    result.add_error("port_conflict", &path.display().to_string(), &format!("Port {} conflicts with {}", agent.port, existing));
+                                    result.add_error(
+                                        "port_conflict",
+                                        &path.display().to_string(),
+                                        &format!("Port {} conflicts with {}", agent.port, existing),
+                                    );
                                 } else {
                                     ports_used.insert(agent.port, agent.name.clone());
                                 }
                             }
                         }
                         Err(e) => {
-                            result.add_error("parse", &path.display().to_string(), &format!("Invalid YAML: {e}"));
+                            result.add_error(
+                                "parse",
+                                &path.display().to_string(),
+                                &format!("Invalid YAML: {e}"),
+                            );
                         }
                     }
                 }
@@ -582,22 +681,41 @@ fn build_validation_response(
 
         let issues_section = DashboardSection::new("issues", "Issues Found", SectionType::Table)
             .with_data(json!({ "table": table }))
-            .map_err(|e| McpError::internal_error(format!("Failed to serialize issues: {e}"), None))?
-            .with_layout(SectionLayout { width: LayoutWidth::Full, order: 2 });
+            .map_err(|e| {
+                McpError::internal_error(format!("Failed to serialize issues: {e}"), None)
+            })?
+            .with_layout(SectionLayout {
+                width: LayoutWidth::Full,
+                order: 2,
+            });
         dashboard = dashboard.add_section(issues_section);
     }
 
     let metadata = ExecutionMetadata::new().tool("operations");
     let artifact_id = ArtifactId::new(uuid::Uuid::new_v4().to_string());
-    let tool_response = ToolResponse::new(artifact_id, mcp_execution_id.clone(), dashboard, metadata.clone());
+    let tool_response = ToolResponse::new(
+        artifact_id,
+        mcp_execution_id.clone(),
+        dashboard,
+        metadata.clone(),
+    );
 
     // Build text summary
-    let mut text_summary = format!("{title}\n\nResults: {} passed, {} warnings, {} errors\n\n", result.passed, result.warnings, result.errors);
+    let mut text_summary = format!(
+        "{title}\n\nResults: {} passed, {} warnings, {} errors\n\n",
+        result.passed, result.warnings, result.errors
+    );
 
     if !result.issues.is_empty() {
         text_summary.push_str("Issues:\n");
         for issue in &result.issues {
-            text_summary.push_str(&format!("- [{}] {}: {} - {}\n", issue.severity.to_uppercase(), issue.category, issue.file, issue.message));
+            text_summary.push_str(&format!(
+                "- [{}] {}: {} - {}\n",
+                issue.severity.to_uppercase(),
+                issue.category,
+                issue.file,
+                issue.message
+            ));
         }
     } else {
         text_summary.push_str("No issues found. Configuration is valid.");

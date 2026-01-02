@@ -2,7 +2,11 @@ mod models;
 pub mod repository;
 mod sections;
 
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
 use systemprompt::database::DbPool;
 use systemprompt::identifiers::{ArtifactId, McpExecutionId};
@@ -13,7 +17,8 @@ use systemprompt::models::artifacts::{
 use repository::LogsRepository;
 use sections::{create_logs_table_section, create_stats_section};
 
-#[must_use] pub fn logs_input_schema() -> JsonValue {
+#[must_use]
+pub fn logs_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -36,7 +41,8 @@ use sections::{create_logs_table_section, create_stats_section};
     })
 }
 
-#[must_use] pub fn logs_output_schema() -> JsonValue {
+#[must_use]
+pub fn logs_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 
@@ -48,8 +54,14 @@ pub async fn handle_logs(
 ) -> Result<CallToolResult, McpError> {
     let args = request.arguments.unwrap_or_default();
 
-    let page = args.get("page").and_then(serde_json::Value::as_i64).unwrap_or(0) as i32;
-    let limit = args.get("limit").and_then(serde_json::Value::as_i64).unwrap_or(1000) as i32;
+    let page = args
+        .get("page")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0) as i32;
+    let limit = args
+        .get("limit")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(1000) as i32;
     let level = args.get("level").and_then(|v| v.as_str()).map(String::from);
 
     tracing::debug!(page = page, limit = limit, level = ?level, "Fetching logs");
@@ -77,8 +89,7 @@ pub async fn handle_logs(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     dashboard = dashboard.add_section(
-        create_stats_section(&stats)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+        create_stats_section(&stats).map_err(|e| McpError::internal_error(e.to_string(), None))?,
     );
     dashboard = dashboard.add_section(
         create_logs_table_section(&logs, page)

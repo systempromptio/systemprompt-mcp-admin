@@ -2,10 +2,14 @@ mod models;
 pub mod repository;
 mod sections;
 
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
-use systemprompt::database::DbPool;
 use systemprompt::analytics::CoreStatsRepository;
+use systemprompt::database::DbPool;
 use systemprompt::identifiers::{ArtifactId, McpExecutionId};
 use systemprompt::models::artifacts::{
     DashboardArtifact, DashboardHints, ExecutionMetadata, LayoutMode, ToolResponse,
@@ -18,7 +22,8 @@ use sections::{
     create_tool_usage_section, create_traffic_summary_section,
 };
 
-#[must_use] pub fn dashboard_input_schema() -> JsonValue {
+#[must_use]
+pub fn dashboard_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -32,7 +37,8 @@ use sections::{
     })
 }
 
-#[must_use] pub fn dashboard_output_schema() -> JsonValue {
+#[must_use]
+pub fn dashboard_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 

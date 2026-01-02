@@ -1,4 +1,5 @@
-#[must_use] pub fn build_admin_analysis_prompt(focus_area: &str, time_period: &str) -> String {
+#[must_use]
+pub fn build_admin_analysis_prompt(focus_area: &str, time_period: &str) -> String {
     format!(
         "You are a SystemPrompt administrator analyzing the system. Focus on: {focus_area}\n\
         Time period: {time_period}\n\n\

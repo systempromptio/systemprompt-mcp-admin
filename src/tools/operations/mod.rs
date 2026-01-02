@@ -5,7 +5,11 @@ pub use schema::{operations_input_schema, operations_output_schema};
 pub use validation::{handle_validate_agents, handle_validate_config, handle_validate_skills};
 
 use chrono::Utc;
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
 use sqlx::types::Uuid;
 use systemprompt::content::repository::ContentRepository;
@@ -51,13 +55,19 @@ async fn handle_list_files(
     args: &serde_json::Map<String, JsonValue>,
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
-    let limit = args.get("limit").and_then(serde_json::Value::as_i64).unwrap_or(100);
-    let offset = args.get("offset").and_then(serde_json::Value::as_i64).unwrap_or(0);
+    let limit = args
+        .get("limit")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(100);
+    let offset = args
+        .get("offset")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
 
     tracing::debug!(limit = limit, offset = offset, "Listing files");
 
-    let file_repo = FileRepository::new(pool)
-        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+    let file_repo =
+        FileRepository::new(pool).map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     let files = file_repo
         .list_all(limit, offset)
@@ -158,8 +168,9 @@ async fn handle_delete_content(
 
     tracing::debug!(uuid = %uuid_str, "Deleting content");
 
-    let content_repo = ContentRepository::new(pool)
-        .map_err(|e| McpError::internal_error(format!("Failed to create content repo: {e}"), None))?;
+    let content_repo = ContentRepository::new(pool).map_err(|e| {
+        McpError::internal_error(format!("Failed to create content repo: {e}"), None)
+    })?;
     let content_id = ContentId::new(uuid_str);
     content_repo
         .delete(&content_id)

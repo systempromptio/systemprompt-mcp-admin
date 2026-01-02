@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use std::{env, sync::Arc};
-use systemprompt_admin::AdminServer;
-use systemprompt::system::AppContext;
 use systemprompt::identifiers::McpServerId;
-use systemprompt::models::{Config, ProfileBootstrap};
+use systemprompt::models::{Config, ProfileBootstrap, SecretsBootstrap};
+use systemprompt::system::AppContext;
+use systemprompt_admin::AdminServer;
 use tokio::net::TcpListener;
 
 /// Default service ID - MUST match the key in `mcp_servers` config
@@ -13,6 +13,7 @@ const DEFAULT_PORT: u16 = 5002;
 #[tokio::main]
 async fn main() -> Result<()> {
     ProfileBootstrap::init().context("Failed to initialize profile")?;
+    SecretsBootstrap::init().context("Failed to initialize secrets")?;
     Config::init().context("Failed to initialize configuration")?;
 
     let ctx = Arc::new(

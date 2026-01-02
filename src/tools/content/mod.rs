@@ -3,7 +3,11 @@ pub mod repository;
 mod sections;
 
 use anyhow::Result;
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
 use systemprompt::content::models::{LinkType, UtmParams};
 use systemprompt::content::services::link::generation::GenerateLinkParams;
@@ -23,7 +27,8 @@ use sections::{
 
 const REDIRECT_BASE_URL: &str = "https://tyingshoelaces.com";
 
-#[must_use] pub fn content_input_schema() -> JsonValue {
+#[must_use]
+pub fn content_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -37,7 +42,8 @@ const REDIRECT_BASE_URL: &str = "https://tyingshoelaces.com";
     })
 }
 
-#[must_use] pub fn content_output_schema() -> JsonValue {
+#[must_use]
+pub fn content_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 
@@ -83,7 +89,7 @@ pub async fn handle_content(
 
     dashboard = dashboard.add_section(
         create_traffic_summary_cards(&traffic_summary)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
     );
 
     let daily_views = repo
@@ -94,7 +100,7 @@ pub async fn handle_content(
     if !daily_views.is_empty() {
         dashboard = dashboard.add_section(
             create_daily_views_chart(&daily_views)
-                .map_err(|e| McpError::internal_error(e.to_string(), None))?
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
         );
     }
 
@@ -108,7 +114,7 @@ pub async fn handle_content(
     if !top_content.is_empty() {
         dashboard = dashboard.add_section(
             create_top_content_section(&top_content)
-                .map_err(|e| McpError::internal_error(e.to_string(), None))?
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
         );
     }
 
@@ -120,7 +126,7 @@ pub async fn handle_content(
     if !top_referrers.is_empty() {
         dashboard = dashboard.add_section(
             create_top_referrers_section(&top_referrers)
-                .map_err(|e| McpError::internal_error(e.to_string(), None))?
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?,
         );
     }
 

@@ -6,7 +6,11 @@ pub use schema::{users_input_schema, users_output_schema};
 
 use anyhow::Result;
 use repository::UsersRepository;
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
 use systemprompt::database::DbPool;
 use systemprompt::identifiers::{ArtifactId, McpExecutionId};

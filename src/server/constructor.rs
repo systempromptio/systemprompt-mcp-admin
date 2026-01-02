@@ -4,8 +4,8 @@ use std::sync::Arc;
 use systemprompt::agent::services::mcp::ToolResultHandler;
 use systemprompt::agent::services::ArtifactPublishingService;
 use systemprompt::database::DbPool;
-use systemprompt::system::AppContext;
 use systemprompt::identifiers::McpServerId;
+use systemprompt::system::AppContext;
 
 use crate::prompts::AdminPrompts;
 use crate::resources::AdminResources;
@@ -23,7 +23,8 @@ pub struct AdminServer {
 }
 
 impl AdminServer {
-    #[must_use] pub fn new(db_pool: DbPool, service_id: McpServerId, app_context: Arc<AppContext>) -> Self {
+    #[must_use]
+    pub fn new(db_pool: DbPool, service_id: McpServerId, app_context: Arc<AppContext>) -> Self {
         let prompts = Arc::new(AdminPrompts::new(db_pool.clone(), service_id.to_string()));
         let resources = Arc::new(AdminResources::new(db_pool.clone(), service_id.to_string()));
         let tool_result_handler = Arc::new(ToolResultHandler::new(db_pool.clone()));

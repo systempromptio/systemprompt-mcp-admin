@@ -28,7 +28,8 @@ Examples:
 - "Update agent uuid-456 to have monitoring capabilities" -> update operation with uuid
 "#;
 
-#[must_use] pub fn get_agent_operation_schema() -> serde_json::Value {
+#[must_use]
+pub fn get_agent_operation_schema() -> serde_json::Value {
     json!({
         "type": "object",
         "properties": {
@@ -115,7 +116,8 @@ Examples:
     })
 }
 
-#[must_use] pub fn build_agent_prompt_content(task_type: &str, domain: &str) -> String {
+#[must_use]
+pub fn build_agent_prompt_content(task_type: &str, domain: &str) -> String {
     format!(
         "You are a SystemPrompt agent architect. Task: {task_type} for {domain} domain.\n\n\
         Use the manage_agents tool to create, update, or manage agents.\n\n\

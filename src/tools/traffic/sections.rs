@@ -9,7 +9,9 @@ use super::models::{
     TrafficSummary,
 };
 
-pub fn create_traffic_summary_section(summary: &TrafficSummary) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_traffic_summary_section(
+    summary: &TrafficSummary,
+) -> Result<DashboardSection, serde_json::Error> {
     let cards = vec![
         json!({
             "title": "Total Sessions",
@@ -61,7 +63,9 @@ pub fn create_traffic_summary_section(summary: &TrafficSummary) -> Result<Dashbo
     }))
 }
 
-pub fn create_device_breakdown_section(devices: &[DeviceBreakdownWithTrends]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_device_breakdown_section(
+    devices: &[DeviceBreakdownWithTrends],
+) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = devices
         .iter()
         .map(|device| {
@@ -96,15 +100,19 @@ pub fn create_device_breakdown_section(devices: &[DeviceBreakdownWithTrends]) ->
             .filterable(),
     );
 
-    Ok(DashboardSection::new("device_breakdown", "Device Breakdown", SectionType::Table)
-        .with_data(table.to_response())?
-        .with_layout(SectionLayout {
-            width: LayoutWidth::Full,
-            order: 2,
-        }))
+    Ok(
+        DashboardSection::new("device_breakdown", "Device Breakdown", SectionType::Table)
+            .with_data(table.to_response())?
+            .with_layout(SectionLayout {
+                width: LayoutWidth::Full,
+                order: 2,
+            }),
+    )
 }
 
-pub fn create_geographic_breakdown_section(countries: &[GeographicBreakdown]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_geographic_breakdown_section(
+    countries: &[GeographicBreakdown],
+) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = countries
         .iter()
         .map(|country| {
@@ -151,7 +159,9 @@ pub fn create_geographic_breakdown_section(countries: &[GeographicBreakdown]) ->
     }))
 }
 
-pub fn create_browser_breakdown_section(browsers: &[BrowserBreakdown]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_browser_breakdown_section(
+    browsers: &[BrowserBreakdown],
+) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = browsers
         .iter()
         .map(|browser| {
@@ -186,15 +196,19 @@ pub fn create_browser_breakdown_section(browsers: &[BrowserBreakdown]) -> Result
             .filterable(),
     );
 
-    Ok(DashboardSection::new("browser_breakdown", "Browser Breakdown", SectionType::Table)
-        .with_data(table.to_response())?
-        .with_layout(SectionLayout {
-            width: LayoutWidth::Full,
-            order: 4,
-        }))
+    Ok(
+        DashboardSection::new("browser_breakdown", "Browser Breakdown", SectionType::Table)
+            .with_data(table.to_response())?
+            .with_layout(SectionLayout {
+                width: LayoutWidth::Full,
+                order: 4,
+            }),
+    )
 }
 
-pub fn create_os_breakdown_section(os_list: &[OsBreakdown]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_os_breakdown_section(
+    os_list: &[OsBreakdown],
+) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = os_list
         .iter()
         .map(|os| {
@@ -241,7 +255,9 @@ pub fn create_os_breakdown_section(os_list: &[OsBreakdown]) -> Result<DashboardS
     }))
 }
 
-pub fn create_top_referrers_section(referrers: &[Referrer]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_top_referrers_section(
+    referrers: &[Referrer],
+) -> Result<DashboardSection, serde_json::Error> {
     let rows: Vec<JsonValue> = referrers
         .iter()
         .map(|item| {
@@ -269,10 +285,12 @@ pub fn create_top_referrers_section(referrers: &[Referrer]) -> Result<DashboardS
             .filterable(),
     );
 
-    Ok(DashboardSection::new("top_referrers", "TOP REFERRER URLS", SectionType::Table)
-        .with_data(table.to_response())?
-        .with_layout(SectionLayout {
-            width: LayoutWidth::Full,
-            order: 6,
-        }))
+    Ok(
+        DashboardSection::new("top_referrers", "TOP REFERRER URLS", SectionType::Table)
+            .with_data(table.to_response())?
+            .with_layout(SectionLayout {
+                width: LayoutWidth::Full,
+                order: 6,
+            }),
+    )
 }

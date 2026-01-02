@@ -2,7 +2,11 @@ mod models;
 pub mod repository;
 mod sections;
 
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
 use systemprompt::agent::{repository::task::TaskRepository, Part};
 use systemprompt::database::DbPool;
@@ -17,7 +21,8 @@ use sections::{
     create_summary_cards_section,
 };
 
-#[must_use] pub fn conversations_input_schema() -> JsonValue {
+#[must_use]
+pub fn conversations_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -52,7 +57,8 @@ use sections::{
     })
 }
 
-#[must_use] pub fn conversations_output_schema() -> JsonValue {
+#[must_use]
+pub fn conversations_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 
@@ -75,9 +81,15 @@ pub async fn handle_conversations(
 
     let agent_name = args.get("agent_name").and_then(|v| v.as_str());
 
-    let page = args.get("page").and_then(serde_json::Value::as_i64).unwrap_or(1) as i32;
+    let page = args
+        .get("page")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(1) as i32;
 
-    let per_page = args.get("per_page").and_then(serde_json::Value::as_i64).unwrap_or(10) as i32;
+    let per_page = args
+        .get("per_page")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(10) as i32;
 
     tracing::debug!(
         time_range = %time_range,
@@ -99,12 +111,10 @@ pub async fn handle_conversations(
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     let description = match agent_name {
-        Some("non-anonymous") => format!(
-            "Conversation metrics for the last {time_range} (excluding anonymous agents)"
-        ),
-        Some(name) => format!(
-            "Conversation metrics for the last {time_range} (agent: {name})"
-        ),
+        Some("non-anonymous") => {
+            format!("Conversation metrics for the last {time_range} (excluding anonymous agents)")
+        }
+        Some(name) => format!("Conversation metrics for the last {time_range} (agent: {name})"),
         None => format!(
             "Conversation metrics for the last {time_range} with detailed recent conversations"
         ),

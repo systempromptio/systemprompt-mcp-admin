@@ -1,16 +1,21 @@
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 use systemprompt::database::DbPool;
-use systemprompt::scheduler::models::ScheduledJob;
-use systemprompt::scheduler::repository::SchedulerRepository;
-use systemprompt::system::AppContext;
 use systemprompt::identifiers::{ArtifactId, McpExecutionId};
 use systemprompt::models::artifacts::{
     Column, ColumnType, ExecutionMetadata, TableArtifact, TableHints, ToolResponse,
 };
+use systemprompt::scheduler::models::ScheduledJob;
+use systemprompt::scheduler::repository::SchedulerRepository;
+use systemprompt::system::AppContext;
 
-#[must_use] pub fn jobs_input_schema() -> JsonValue {
+#[must_use]
+pub fn jobs_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -34,7 +39,8 @@ use systemprompt::models::artifacts::{
     })
 }
 
-#[must_use] pub fn jobs_output_schema() -> JsonValue {
+#[must_use]
+pub fn jobs_output_schema() -> JsonValue {
     json!({
         "type": "object",
         "description": "Table of all scheduler jobs with current status",

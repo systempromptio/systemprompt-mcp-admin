@@ -2,7 +2,11 @@ mod models;
 pub mod repository;
 mod sections;
 
-use rmcp::{model::{CallToolRequestParam, CallToolResult, Content}, service::RequestContext, ErrorData as McpError, RoleServer};
+use rmcp::{
+    model::{CallToolRequestParam, CallToolResult, Content},
+    service::RequestContext,
+    ErrorData as McpError, RoleServer,
+};
 use serde_json::{json, Value as JsonValue};
 use systemprompt::database::DbPool;
 use systemprompt::identifiers::{ArtifactId, McpExecutionId};
@@ -17,7 +21,8 @@ use sections::{
     create_traffic_summary_section,
 };
 
-#[must_use] pub fn traffic_input_schema() -> JsonValue {
+#[must_use]
+pub fn traffic_input_schema() -> JsonValue {
     json!({
         "type": "object",
         "properties": {
@@ -31,7 +36,8 @@ use sections::{
     })
 }
 
-#[must_use] pub fn traffic_output_schema() -> JsonValue {
+#[must_use]
+pub fn traffic_output_schema() -> JsonValue {
     ToolResponse::<DashboardArtifact>::schema()
 }
 

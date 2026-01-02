@@ -7,7 +7,9 @@ use systemprompt::models::artifacts::{
 
 use super::models::{ContentPerformance, DailyViewData, Referrer, TrafficSummary};
 
-pub fn create_traffic_summary_cards(summary: &TrafficSummary) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_traffic_summary_cards(
+    summary: &TrafficSummary,
+) -> Result<DashboardSection, serde_json::Error> {
     let format_trend = |diff: i32, percent: f64| -> String {
         let sign = if diff >= 0 { "+" } else { "" };
         format!("{sign}{diff} visitors ({percent:+.1}%)")
@@ -49,7 +51,9 @@ pub fn create_traffic_summary_cards(summary: &TrafficSummary) -> Result<Dashboar
     }))
 }
 
-pub fn create_top_content_section(content: &[ContentPerformance]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_top_content_section(
+    content: &[ContentPerformance],
+) -> Result<DashboardSection, serde_json::Error> {
     let table = TableArtifact::new(vec![
         Column::new("title", ColumnType::String).with_header("TITLE"),
         Column::new("link", ColumnType::Link).with_header("URL"),
@@ -86,15 +90,19 @@ pub fn create_top_content_section(content: &[ContentPerformance]) -> Result<Dash
             .filterable(),
     );
 
-    Ok(DashboardSection::new("top_content", "TOP PERFORMING CONTENT", SectionType::Table)
-        .with_data(table.to_response())?
-        .with_layout(SectionLayout {
-            width: LayoutWidth::Full,
-            order: 1,
-        }))
+    Ok(
+        DashboardSection::new("top_content", "TOP PERFORMING CONTENT", SectionType::Table)
+            .with_data(table.to_response())?
+            .with_layout(SectionLayout {
+                width: LayoutWidth::Full,
+                order: 1,
+            }),
+    )
 }
 
-pub fn create_daily_views_chart(daily_views: &[DailyViewData]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_daily_views_chart(
+    daily_views: &[DailyViewData],
+) -> Result<DashboardSection, serde_json::Error> {
     let mut content_map: HashMap<String, Vec<(String, f64)>> = HashMap::new();
     let mut all_dates: BTreeSet<String> = BTreeSet::new();
 
@@ -149,7 +157,9 @@ pub fn create_daily_views_chart(daily_views: &[DailyViewData]) -> Result<Dashboa
     }))
 }
 
-pub fn create_top_referrers_section(referrers: &[Referrer]) -> Result<DashboardSection, serde_json::Error> {
+pub fn create_top_referrers_section(
+    referrers: &[Referrer],
+) -> Result<DashboardSection, serde_json::Error> {
     let table = TableArtifact::new(vec![
         Column::new("referrer_url", ColumnType::String).with_header("REFERRER URL"),
         Column::new("sessions", ColumnType::Integer).with_header("SESSIONS"),
@@ -179,10 +189,12 @@ pub fn create_top_referrers_section(referrers: &[Referrer]) -> Result<DashboardS
             .filterable(),
     );
 
-    Ok(DashboardSection::new("top_referrers", "TOP REFERRER URLS", SectionType::Table)
-        .with_data(table.to_response())?
-        .with_layout(SectionLayout {
-            width: LayoutWidth::Full,
-            order: 2,
-        }))
+    Ok(
+        DashboardSection::new("top_referrers", "TOP REFERRER URLS", SectionType::Table)
+            .with_data(table.to_response())?
+            .with_layout(SectionLayout {
+                width: LayoutWidth::Full,
+                order: 2,
+            }),
+    )
 }
