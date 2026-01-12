@@ -10,7 +10,6 @@ use systemprompt::system::AppContext;
 
 pub mod content;
 pub mod conversations;
-pub mod dashboard;
 pub mod jobs;
 pub mod logs;
 pub mod operations;
@@ -21,22 +20,29 @@ pub use content::{content_input_schema, content_output_schema, handle_content};
 pub use conversations::{
     conversations_input_schema, conversations_output_schema, handle_conversations,
 };
-pub use dashboard::{dashboard_input_schema, dashboard_output_schema, handle_dashboard};
 pub use jobs::{handle_jobs, jobs_input_schema, jobs_output_schema};
 pub use logs::{handle_logs, logs_input_schema, logs_output_schema};
 pub use operations::{handle_operations, operations_input_schema, operations_output_schema};
 pub use traffic::{handle_traffic, traffic_input_schema, traffic_output_schema};
-pub use users::{handle_users, users_input_schema, users_output_schema};
+pub use users::{handle_users, users_input_schema, users_input_schema_with_roles, users_output_schema};
 
 #[must_use]
 pub fn register_tools() -> Vec<Tool> {
+    register_tools_with_roles(&[])
+}
+
+#[must_use]
+pub fn register_tools_with_roles(role_names: &[String]) -> Vec<Tool> {
+    let user_schema = if role_names.is_empty() {
+        users_input_schema()
+    } else {
+        users_input_schema_with_roles(role_names)
+    };
+
     vec![
-        create_tool("dashboard", "System Dashboard",
-            "Comprehensive unified dashboard with real-time activity, conversations (24h/7d/30d with trends), recent conversations table, traffic overview, daily trend charts, and agent/tool usage metrics.",
-            dashboard_input_schema(), dashboard_output_schema()),
         create_tool("user", "User Management",
             "Manage users, sessions, roles, and user activity.",
-            users_input_schema(), users_output_schema()),
+            user_schema, users_output_schema()),
         create_tool("traffic", "Traffic Analytics",
             "Website traffic metrics: sessions, requests, unique visitors, device breakdown, geolocation, and client analysis.",
             traffic_input_schema(), traffic_output_schema()),
@@ -67,7 +73,6 @@ pub async fn handle_tool_call(
     mcp_execution_id: &McpExecutionId,
 ) -> Result<CallToolResult, McpError> {
     match name {
-        "dashboard" => handle_dashboard(db_pool, request, ctx, mcp_execution_id).await,
         "user" => handle_users(db_pool, request, ctx, mcp_execution_id).await,
         "traffic" => handle_traffic(db_pool, request, ctx, mcp_execution_id).await,
         "content" => handle_content(db_pool, request, ctx, mcp_execution_id).await,
@@ -83,8 +88,12 @@ pub async fn handle_tool_call(
 }
 
 pub fn list_tools() -> Result<ListToolsResult, McpError> {
+    list_tools_with_roles(&[])
+}
+
+pub fn list_tools_with_roles(role_names: &[String]) -> Result<ListToolsResult, McpError> {
     Ok(ListToolsResult {
-        tools: register_tools(),
+        tools: register_tools_with_roles(role_names),
         next_cursor: None,
     })
 }

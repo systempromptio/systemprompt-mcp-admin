@@ -1,16 +1,39 @@
 use serde_json::{json, Value as JsonValue};
 
 #[must_use]
-pub fn users_input_schema() -> JsonValue {
+pub fn users_input_schema_with_roles(role_names: &[String]) -> JsonValue {
     json!({
         "type": "object",
         "properties": {
+            "action": {
+                "type": "string",
+                "enum": ["list", "assign_role", "remove_role", "delete"],
+                "description": "Operation to perform. Defaults to 'list' if not specified."
+            },
             "user_id": {
                 "type": "string",
-                "description": "Optional user ID to filter to a single user"
+                "description": "User ID. Optional for list, required for assign_role, remove_role, delete."
+            },
+            "role": {
+                "type": "string",
+                "enum": role_names,
+                "description": "Role to assign or remove. Required for assign_role and remove_role actions."
             }
         }
     })
+}
+
+#[must_use]
+pub fn users_input_schema() -> JsonValue {
+    users_input_schema_with_roles(&default_role_names())
+}
+
+fn default_role_names() -> Vec<String> {
+    vec![
+        "anonymous".to_string(),
+        "user".to_string(),
+        "admin".to_string(),
+    ]
 }
 
 #[must_use]

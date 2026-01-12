@@ -9,6 +9,7 @@ use systemprompt::system::AppContext;
 
 use crate::prompts::AdminPrompts;
 use crate::resources::AdminResources;
+use crate::services::DiscoveredRole;
 
 #[derive(Clone)]
 pub struct AdminServer {
@@ -20,17 +21,23 @@ pub struct AdminServer {
     pub(super) publishing_service: Arc<ArtifactPublishingService>,
     pub(super) tool_schemas: Arc<HashMap<String, serde_json::Value>>,
     pub(super) app_context: Arc<AppContext>,
+    pub(super) discovered_roles: Arc<Vec<DiscoveredRole>>,
 }
 
 impl AdminServer {
-    #[must_use]
-    pub fn new(db_pool: DbPool, service_id: McpServerId, app_context: Arc<AppContext>) -> Self {
+    pub async fn new(
+        db_pool: DbPool,
+        service_id: McpServerId,
+        app_context: Arc<AppContext>,
+    ) -> Self {
         let prompts = Arc::new(AdminPrompts::new(db_pool.clone(), service_id.to_string()));
         let resources = Arc::new(AdminResources::new(db_pool.clone(), service_id.to_string()));
         let tool_result_handler = Arc::new(ToolResultHandler::new(db_pool.clone()));
         let publishing_service = Arc::new(ArtifactPublishingService::new(db_pool.clone()));
 
-        let tool_schemas = Self::build_tool_schema_cache();
+        let discovered_roles = Self::discover_roles(&app_context).await;
+        let role_names: Vec<String> = discovered_roles.iter().map(|r| r.name.clone()).collect();
+        let tool_schemas = Self::build_tool_schema_cache(&role_names);
 
         Self {
             db_pool,
@@ -41,12 +48,28 @@ impl AdminServer {
             publishing_service,
             tool_schemas: Arc::new(tool_schemas),
             app_context,
+            discovered_roles: Arc::new(discovered_roles),
         }
     }
 
-    fn build_tool_schema_cache() -> HashMap<String, serde_json::Value> {
+    async fn discover_roles(app_context: &AppContext) -> Vec<DiscoveredRole> {
+        use crate::services::RoleDiscoveryService;
+
+        let extensions_path = std::path::Path::new(&app_context.config().system_path)
+            .parent()
+            .map(|p| p.join("extensions"))
+            .unwrap_or_else(|| std::path::PathBuf::from("extensions"));
+
+        let role_service = RoleDiscoveryService::new(extensions_path);
+        role_service
+            .discover_all_roles()
+            .await
+            .unwrap_or_else(|_| crate::services::role_discovery::default_core_roles())
+    }
+
+    fn build_tool_schema_cache(role_names: &[String]) -> HashMap<String, serde_json::Value> {
         let mut schemas = HashMap::new();
-        let tools = crate::tools::register_tools();
+        let tools = crate::tools::register_tools_with_roles(role_names);
 
         for tool in tools {
             if let Some(output_schema) = tool.output_schema {

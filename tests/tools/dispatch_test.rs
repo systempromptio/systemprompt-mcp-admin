@@ -5,7 +5,6 @@ fn register_tools_returns_all_expected_tools() {
     let tools = register_tools();
 
     let expected_names = [
-        "dashboard",
         "user",
         "traffic",
         "content",
@@ -57,7 +56,7 @@ fn all_tools_have_input_and_output_schemas() {
 #[test]
 fn register_tools_returns_correct_count() {
     let tools = register_tools();
-    assert_eq!(tools.len(), 8);
+    assert_eq!(tools.len(), 7);
 }
 
 #[test]

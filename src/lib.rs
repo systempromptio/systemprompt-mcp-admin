@@ -4,6 +4,7 @@ pub mod prompts;
 pub mod repository;
 pub mod resources;
 pub mod server;
+pub mod services;
 pub mod tools;
 
 pub use server::AdminServer;

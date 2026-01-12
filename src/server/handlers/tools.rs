@@ -19,7 +19,8 @@ impl AdminServer {
         _request: Option<PaginatedRequestParam>,
         _ctx: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
-        crate::tools::list_tools()
+        let role_names: Vec<String> = self.discovered_roles.iter().map(|r| r.name.clone()).collect();
+        crate::tools::list_tools_with_roles(&role_names)
     }
 
     pub(in crate::server) async fn call_tool(

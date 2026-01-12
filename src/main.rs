@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
             DEFAULT_PORT
         });
 
-    let server = AdminServer::new(ctx.db_pool().clone(), service_id.clone(), ctx.clone());
+    let server = AdminServer::new(ctx.db_pool().clone(), service_id.clone(), ctx.clone()).await;
     let router = systemprompt::mcp::create_router(server, &ctx);
     let addr = format!("0.0.0.0:{port}");
     let listener = TcpListener::bind(&addr).await?;

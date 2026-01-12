@@ -1,7 +1,7 @@
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
-use systemprompt_core_database::{Database, DbPool};
+use systemprompt::database::{Database, DbPool};
 
 static TEST_DB: OnceCell<DbPool> = OnceCell::new();
 
