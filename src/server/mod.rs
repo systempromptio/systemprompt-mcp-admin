@@ -84,6 +84,7 @@ impl ServerHandler for AdminServer {
         Ok(ListResourceTemplatesResult {
             next_cursor: None,
             resource_templates: Vec::new(),
+            meta: None,
         })
     }
 }

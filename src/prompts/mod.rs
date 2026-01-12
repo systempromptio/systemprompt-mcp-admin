@@ -60,6 +60,7 @@ impl AdminPrompts {
                     ]),
                     title: None,
                     icons: None,
+                    meta: None,
                 },
                 Prompt {
                     name: "system_health".into(),
@@ -74,6 +75,7 @@ impl AdminPrompts {
                     ]),
                     title: None,
                     icons: None,
+                    meta: None,
                 },
                 Prompt {
                     name: "agent_management".into(),
@@ -94,9 +96,11 @@ impl AdminPrompts {
                     ]),
                     title: None,
                     icons: None,
+                    meta: None,
                 },
             ],
             next_cursor: None,
+            meta: None,
         })
     }
 

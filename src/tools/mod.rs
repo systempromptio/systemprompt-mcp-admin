@@ -95,6 +95,7 @@ pub fn list_tools_with_roles(role_names: &[String]) -> Result<ListToolsResult, M
     Ok(ListToolsResult {
         tools: register_tools_with_roles(role_names),
         next_cursor: None,
+        meta: None,
     })
 }
 
@@ -116,5 +117,6 @@ fn create_tool(
         output_schema: Some(Arc::new(output_obj)),
         annotations: None,
         icons: None,
+        meta: None,
     }
 }

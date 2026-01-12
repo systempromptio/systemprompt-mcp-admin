@@ -31,6 +31,7 @@ impl AdminResources {
         Ok(ListResourcesResult {
             next_cursor: None,
             resources: Vec::new(),
+            meta: None,
         })
     }
 
